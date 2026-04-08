@@ -348,6 +348,12 @@ function cupsAfterBuy(){
     invTotal('ice')+G.pending.ice
   );
 }
+function cupsAfterBuyNoIce(){
+  return Math.min(
+    invTotal('lemon')+G.pending.lemon,
+    invTotal('sugar')+G.pending.sugar
+  );
+}
 
 // ── RENDERERS ────────────────────────────────────────────────
 function renderSetup(){
@@ -433,7 +439,7 @@ function renderShop(){
 }
 
 function renderPlanning(){
-  const cost=pendingCost(), afford=G.money-cost, cups=cupsAfterBuy();
+  const cost=pendingCost(), afford=G.money-cost, cups=cupsAfterBuy(), cupsPlain=cupsAfterBuyNoIce();
   const wx=G.weather, fx=G.forecastWeather;
 
   // Expiry warnings
@@ -512,9 +518,19 @@ function renderPlanning(){
     </div>
 
     <div class="cups-box">
-      <div class="cups-num">${cups}</div>
-      <div class="cups-lbl">cups you can make today</div>
-      ${cups===0?'<div style="color:var(--r);font-size:.82rem;margin-top:4px">Buy supplies to open!</div>':''}
+      <div class="cups-lbl" style="margin-bottom:10px">cups you can make today</div>
+      <div style="display:flex;justify-content:center;align-items:stretch;gap:0">
+        <div style="flex:1;text-align:center;padding:0 12px">
+          <div class="cups-num">${cups}</div>
+          <div class="cups-lbl" style="margin-top:4px">🧊 with ice</div>
+        </div>
+        <div style="width:1px;background:var(--y);opacity:.4"></div>
+        <div style="flex:1;text-align:center;padding:0 12px">
+          <div class="cups-num" style="color:${cupsPlain>0?'#888':'var(--yd)'}">${cupsPlain}</div>
+          <div class="cups-lbl" style="margin-top:4px">without ice</div>
+        </div>
+      </div>
+      ${cupsPlain===0?'<div style="color:var(--r);font-size:.82rem;margin-top:8px">Buy lemons &amp; sugar to open!</div>':''}
     </div>
 
     <button class="btn btn-g btn-full" onclick="openStand()" ${cost>G.money?'disabled':''}>
