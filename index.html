@@ -78,6 +78,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .inv-exp{margin-left:auto;font-size:.78rem;color:var(--muted)}
 .exp-warn{color:var(--o);font-weight:600}
 .exp-crit{color:var(--r);font-weight:600}
+.inv-total-row{font-weight:700;border-bottom:1px dashed var(--border);padding-bottom:6px !important;margin-bottom:2px}
+.inv-batch-row{padding-left:22px;opacity:.85}
 
 /* PRICE */
 .price-row{display:flex;align-items:center;gap:10px;margin-top:8px}
@@ -408,12 +410,22 @@ function renderInvRows(){
   return items.map(({t,icon,name})=>{
     const total=invTotal(t);
     if(total===0) return `<div class="inv-row"><span>${icon}</span><span class="inv-qty">0</span><span style="color:#bbb">${name} — none</span></div>`;
-    return G.inv[t].map(b=>{
+
+    const batches=G.inv[t];
+    const multi=batches.length>1;
+
+    function batchRow(b, extraClass=''){
       const dl=b.exp-G.day;
       const cls=dl<=1?'exp-crit':dl<=3?'exp-warn':'';
-      const txt=dl<=1?'expires TODAY!':dl<=3?`expires in ${dl}d`:`expires in ${dl}d`;
-      return `<div class="inv-row"><span>${icon}</span><span class="inv-qty">${b.qty}</span><span>${name}</span><span class="inv-exp ${cls}">${txt}</span></div>`;
-    }).join('');
+      const txt=dl<=1?'expires TODAY!':`expires in ${dl}d`;
+      return `<div class="inv-row ${extraClass}"><span>${extraClass?'↳':icon}</span><span class="inv-qty">${b.qty}</span><span>${name}</span><span class="inv-exp ${cls}">${txt}</span></div>`;
+    }
+
+    if(!multi) return batchRow(batches[0]);
+
+    // Multiple batches: bold total header + indented per-batch rows
+    const totalRow=`<div class="inv-row inv-total-row"><span>${icon}</span><span class="inv-qty">${total}</span><span>${name} <span style="font-weight:400;color:var(--muted);font-size:.8rem">total</span></span></div>`;
+    return totalRow + batches.map(b=>batchRow(b,'inv-batch-row')).join('');
   }).join('');
 }
 
