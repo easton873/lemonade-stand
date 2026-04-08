@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lemonade Stand</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --y:#F5C518;--yl:#FFFDE7;--yd:#c8a000;
+  --g:#4CAF50;--gd:#2E7D32;
+  --r:#E53935;--o:#F57C00;--b:#1976D2;
+  --txt:#1a1a1a;--muted:#666;
+  --card:#fff;--bg:#FFFDE7;--border:#e0e0e0;
+  --sh:0 2px 10px rgba(0,0,0,.08);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+#app{max-width:720px;margin:0 auto;padding:16px}
+
+/* HEADER */
+.hdr{background:var(--y);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;box-shadow:var(--sh)}
+.hdr-title{font-size:1.25rem;font-weight:800}
+.hdr-stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{background:rgba(255,255,255,.5);padding:3px 10px;border-radius:20px;font-size:.85rem;font-weight:700}
+
+/* CARDS */
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:var(--sh);border:1px solid var(--border)}
+.card-title{font-weight:700;font-size:.95rem;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+
+/* BUTTONS */
+.btn{border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:.95rem;padding:10px 18px;transition:all .15s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-y{background:var(--y);color:var(--txt)}
+.btn-g{background:var(--g);color:#fff}
+.btn-r{background:var(--r);color:#fff}
+.btn-w{background:#f4f4f4;color:var(--txt)}
+.btn-full{width:100%;margin-top:8px;padding:14px;font-size:1.05rem}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* WEATHER */
+.wx-card{text-align:center;padding:12px 8px}
+.wx-icon{font-size:2.5rem}
+.wx-name{font-weight:700;font-size:1rem;margin-top:4px}
+.wx-temp{color:var(--muted);font-size:.85rem}
+.wx-desc{color:var(--muted);font-size:.8rem;margin-top:2px}
+.demand-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.75rem;font-weight:700;margin-top:6px}
+.d-vhigh{background:#FFCDD2;color:#B71C1C}
+.d-high{background:#FFF9C4;color:#F57F17}
+.d-med{background:#E8F5E9;color:#1B5E20}
+.d-low{background:#E3F2FD;color:#0D47A1}
+.d-vlow{background:#EDE7F6;color:#4527A0}
+
+/* SHOP */
+.ing-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.ing-row:last-child{border-bottom:none}
+.ing-icon{width:38px;height:38px;background:var(--yl);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.ing-info{flex:1;min-width:0}
+.ing-name{font-weight:600;font-size:.9rem}
+.ing-detail{font-size:.78rem;color:var(--muted)}
+.ing-ctrl{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.qbtn{width:26px;height:26px;border:2px solid var(--y);background:#fff;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.qbtn:hover{background:var(--yl)}
+.qdsp{min-width:36px;text-align:center;font-weight:700;font-size:.9rem}
+
+/* INVENTORY */
+.inv-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.88rem}
+.inv-qty{font-weight:700;min-width:28px}
+.inv-exp{margin-left:auto;font-size:.78rem;color:var(--muted)}
+.exp-warn{color:var(--o);font-weight:600}
+.exp-crit{color:var(--r);font-weight:600}
+
+/* PRICE */
+.price-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.price-inp{width:72px;padding:7px;border:2px solid var(--border);border-radius:8px;font-size:1.1rem;font-weight:700;text-align:center}
+.price-inp:focus{border-color:var(--y);outline:none}
+.price-hint{font-size:.82rem;flex:1}
+.quick-prices{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.quick-prices .btn{padding:5px 12px;font-size:.82rem}
+
+/* CUPS CAN MAKE */
+.cups-box{background:var(--yl);border:2px solid var(--y);border-radius:10px;padding:12px;text-align:center;margin-bottom:10px}
+.cups-num{font-size:2.2rem;font-weight:800;color:var(--yd);line-height:1}
+.cups-lbl{font-size:.82rem;color:var(--muted);margin-top:2px}
+
+/* SIMULATION */
+.sim-wrap{text-align:center;padding:32px 16px}
+.sim-title{font-size:1.4rem;font-weight:700;margin-bottom:16px}
+.prog-bar{height:18px;background:var(--border);border-radius:9px;overflow:hidden;margin:14px 0}
+.prog-fill{height:100%;background:var(--y);border-radius:9px;transition:width .08s linear}
+.sim-count{font-size:3.5rem;font-weight:800;color:var(--gd);line-height:1;margin:16px 0 4px}
+.sim-time{font-size:.9rem;color:var(--muted);height:20px}
+.sim-msg{font-size:.88rem;color:var(--muted);height:20px;margin-top:8px}
+
+/* SUMMARY */
+.sum-hero{text-align:center;padding:16px 0}
+.sum-emoji{font-size:3rem}
+.sum-title{font-weight:700;font-size:1.1rem;margin-top:6px}
+.sum-sub{color:var(--muted);font-size:.88rem;margin-top:2px}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.9rem}
+.sum-row:last-child{border-bottom:none}
+.sum-row.ttl{font-weight:700;font-size:.95rem}
+.pos{color:var(--gd)}
+.neg{color:var(--r)}
+
+/* CHART */
+.chart{display:flex;align-items:flex-end;gap:4px;height:56px;padding-bottom:0}
+.chart-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.chart-fill{width:100%;border-radius:3px 3px 0 0;min-height:3px;transition:height .3s}
+.chart-lbl{font-size:.65rem;color:var(--muted)}
+
+/* SETUP */
+.setup{text-align:center;padding:20px 0}
+.game-title{font-size:2.8rem;font-weight:800;color:var(--yd);letter-spacing:-1px;margin-bottom:4px}
+.game-sub{color:var(--muted);font-size:1rem;margin-bottom:24px}
+.loc-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.loc-card{background:var(--card);border:3px solid var(--border);border-radius:12px;padding:18px 14px;cursor:pointer;transition:all .18s;text-align:left}
+.loc-card:hover{border-color:var(--y);background:var(--yl)}
+.loc-card.sel{border-color:var(--y);background:var(--yl)}
+.loc-icon{font-size:2.2rem;margin-bottom:8px}
+.loc-name{font-weight:700;font-size:1rem;margin-bottom:4px}
+.loc-desc{font-size:.82rem;color:var(--muted);line-height:1.4}
+.loc-trait{font-size:.78rem;color:var(--muted);margin-top:3px}
+
+/* ALERTS */
+.alert{padding:9px 13px;border-radius:8px;margin-bottom:10px;font-size:.85rem}
+.alert-w{background:#FFF3E0;border:1px solid #FFB74D;color:#E65100}
+.alert-s{background:#E8F5E9;border:1px solid #66BB6A;color:#1B5E20}
+.alert-i{background:#E3F2FD;border:1px solid #42A5F5;color:#0D47A1}
+
+/* GAME OVER */
+.go{text-align:center;padding:32px 0}
+.go-title{font-size:2.4rem;font-weight:800;color:var(--r);margin-bottom:8px}
+
+/* FADE */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.fade{animation:fadeUp .28s ease}
+
+/* RULES */
+.rules p{font-size:.85rem;color:#555;line-height:1.65;margin-bottom:3px}
+
+@media(max-width:480px){
+  .grid2,.loc-cards{grid-template-columns:1fr}
+  .game-title{font-size:2rem}
+  .hdr-stats{gap:5px}
+  .stat{font-size:.78rem;padding:2px 8px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ── CONSTANTS ────────────────────────────────────────────────
+const PRICES = { lemon:.30, sugar:.10, ice:.05 };
+const EXPIRY  = { lemon:7,   sugar:90,  ice:1  };
+const START_MONEY = 20;
+
+const WEATHERS = [
+  {id:'scorching', name:'Scorching',   icon:'🌡️', temp:'98°F', demand:2.2, iceWant:2.0, desc:'Blazing hot — everyone wants lemonade!'},
+  {id:'hot',       name:'Hot & Sunny', icon:'☀️',  temp:'86°F', demand:1.6, iceWant:1.5, desc:'Great lemonade weather'},
+  {id:'warm',      name:'Warm',        icon:'🌤️', temp:'74°F', demand:1.0, iceWant:1.0, desc:'Comfortable day'},
+  {id:'overcast',  name:'Overcast',    icon:'☁️',  temp:'66°F', demand:0.7, iceWant:0.7, desc:'Grey but decent turnout'},
+  {id:'cool',      name:'Cool',        icon:'⛅',  temp:'60°F', demand:0.5, iceWant:0.45,desc:'A bit chilly today'},
+  {id:'rainy',     name:'Rainy',       icon:'🌧️', temp:'57°F', demand:0.3, iceWant:0.25,desc:'Rain keeps people inside'},
+  {id:'cold',      name:'Cold',        icon:'🧣',  temp:'44°F', demand:0.18,iceWant:0.08,desc:'Too cold for most'},
+  {id:'stormy',    name:'Stormy',      icon:'⛈️', temp:'51°F', demand:0.05,iceWant:0.05,desc:'Stay inside — barely anyone out!'},
+];
+const WX_WEIGHTS = [5,25,28,15,12,8,5,2];
+
+const LOCS = {
+  city:    {id:'city',    name:'City',    icon:'🏙️', base:40, elas:0.7,  desc:'Busy streets, lots of foot traffic. Customers aren\'t very price‑sensitive.',    traits:['High foot traffic','Less price‑sensitive','Consistent demand']},
+  country: {id:'country', name:'Country', icon:'🌾', base:18, elas:1.45, desc:'Quiet roads and regulars. Customers know value and expect fair prices.', traits:['Lower traffic','Very price‑sensitive','Weather‑dependent']},
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+let G = {
+  screen:'setup', money:START_MONEY, day:1, loc:null,
+  inv:{ lemon:[], sugar:[], ice:[] }, // [{qty,exp}]
+  price:1.00,
+  weather:null, nextWeather:null, forecastWeather:null,
+  spend:0, pending:{lemon:0,sugar:0,ice:0},
+  result:null, history:[]
+};
+
+// ── UTILS ─────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const fmt = n  => '$'+Math.abs(n).toFixed(2);
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const rng = (lo,hi) => lo + Math.random()*(hi-lo);
+
+function invTotal(t){ return G.inv[t].reduce((s,b)=>s+b.qty,0); }
+
+function maxCups(withIce){
+  const l=invTotal('lemon'), s=invTotal('sugar'), i=invTotal('ice');
+  return withIce ? Math.min(l,s,i) : Math.min(l,s);
+}
+
+function expireInv(){
+  for(const t of ['lemon','sugar','ice'])
+    G.inv[t] = G.inv[t].filter(b=>b.exp > G.day);
+}
+
+function useIngredients(cups, useIce){
+  const types = useIce ? ['lemon','sugar','ice'] : ['lemon','sugar'];
+  for(const t of types){
+    let need = cups;
+    for(const b of G.inv[t]){
+      const use = Math.min(b.qty, need);
+      b.qty -= use; need -= use;
+      if(need===0) break;
+    }
+    G.inv[t] = G.inv[t].filter(b=>b.qty>0);
+  }
+}
+
+function buyItem(type, qty){
+  if(qty<=0) return;
+  const cost = PRICES[type]*qty;
+  G.money -= cost; G.money = Math.round(G.money*100)/100;
+  G.spend += cost;
+  const exp = G.day + EXPIRY[type];
+  const ex = G.inv[type].find(b=>b.exp===exp);
+  if(ex) ex.qty+=qty; else G.inv[type].push({qty,exp});
+}
+
+// ── WEATHER ──────────────────────────────────────────────────
+function pickWeather(){
+  const total = WX_WEIGHTS.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for(let i=0;i<WEATHERS.length;i++){ r-=WX_WEIGHTS[i]; if(r<=0) return WEATHERS[i]; }
+  return WEATHERS[2];
+}
+
+function makeForecast(actual){
+  if(Math.random()<0.70) return actual;
+  const idx = WEATHERS.indexOf(actual);
+  const shift = Math.random()<0.5 ? -1 : 1;
+  return WEATHERS[clamp(idx+shift,0,WEATHERS.length-1)];
+}
+
+// ── SIMULATION ───────────────────────────────────────────────
+function simulateDay(){
+  const loc = LOCS[G.loc], wx = G.weather;
+  const hasIce = invTotal('ice')>0;
+
+  // Potential customers
+  let pot = loc.base * wx.demand * rng(0.8,1.2);
+  pot = Math.round(pot);
+
+  // Price effect — sweet spot around $0.75–$1.10
+  const sweet = 0.70 + wx.demand*0.25;
+  const priceMult = clamp(1 - (G.price - sweet)*loc.elas*0.55, 0.05, 1.4);
+
+  // Ice penalty on hot days
+  let iceMult = 1;
+  if(!hasIce){
+    if(wx.iceWant>=1.5) iceMult=0.55;
+    else if(wx.iceWant>=1.0) iceMult=0.78;
+  }
+
+  const want = Math.round(pot * priceMult * iceMult);
+  const cap  = maxCups(hasIce);
+  const sold = Math.min(want, cap);
+  const rev  = Math.round(sold*G.price*100)/100;
+  const net  = Math.round((rev-G.spend)*100)/100;
+
+  useIngredients(sold, hasIce);
+  G.money = Math.round((G.money+rev)*100)/100;
+
+  let reaction = '';
+  if(sold===0) reaction='Not a single cup sold today.';
+  else if(sold>=want) reaction = G.price<sweet-0.25 ? 'Customers loved your prices!' : 'Served every customer who came by.';
+  else if(sold<want*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
+  else reaction='Ran out near the end of the day.';
+
+  const r = {pot,want,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction};
+  G.history.push(r);
+  return r;
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function demandBadge(d){
+  if(d>=1.8) return '<span class="demand-badge d-vhigh">🔥 Very High</span>';
+  if(d>=1.2) return '<span class="demand-badge d-high">📈 High</span>';
+  if(d>=0.7) return '<span class="demand-badge d-med">➡️ Normal</span>';
+  if(d>=0.35)return '<span class="demand-badge d-low">📉 Low</span>';
+  return '<span class="demand-badge d-vlow">❄️ Very Low</span>';
+}
+
+function priceHint(price, wx){
+  const sweet = 0.70+wx.demand*0.25;
+  if(price<sweet-0.3)  return '<span class="pos">Very affordable — expect a rush!</span>';
+  if(price<sweet-0.1)  return '<span class="pos">Good price for today\'s weather</span>';
+  if(price<=sweet+0.1) return '<span style="color:var(--o)">Fair price</span>';
+  if(price<=sweet+0.3) return '<span class="neg">A bit pricey today</span>';
+  return '<span class="neg">Too expensive — many will walk away</span>';
+}
+
+function fxQuote(wx){
+  const qs={scorching:'Bring extra ice — scorcher incoming!',hot:'Perfect lemonade weather!',
+    warm:'Comfortable day, decent turnout.',overcast:'Grey skies, but lemonade always helps.',
+    cool:'A bit chilly — stock lightly.',rainy:'Rain forecast. Consider skipping or stocking light.',
+    cold:'Bundle up. Don\'t expect many buyers.',stormy:'Major storm. Almost nobody will be out.'};
+  return qs[wx.id]||'';
+}
+
+function sumEmoji(r){
+  if(r.sold===0) return '😞';
+  if(r.net>6) return '🤑'; if(r.net>0) return '😊';
+  if(r.net>-3) return '😐'; return '😟';
+}
+function sumTitle(r){
+  if(r.sold===0) return 'Rough day...';
+  if(r.sold>=r.want && r.net>3) return 'Great day!';
+  if(r.sold>=r.want) return 'Solid day!';
+  if(r.sold<r.want*0.45) return 'Ran out early!';
+  return 'Not bad!';
+}
+
+function pendingCost(){
+  return G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice;
+}
+
+function cupsAfterBuy(){
+  return Math.min(
+    invTotal('lemon')+G.pending.lemon,
+    invTotal('sugar')+G.pending.sugar,
+    invTotal('ice')+G.pending.ice
+  );
+}
+
+// ── RENDERERS ────────────────────────────────────────────────
+function renderSetup(){
+  const locCards = Object.values(LOCS).map(l=>`
+    <div class="loc-card${G.loc===l.id?' sel':''}" onclick="selectLoc('${l.id}')">
+      <div class="loc-icon">${l.icon}</div>
+      <div class="loc-name">${l.name}</div>
+      <div class="loc-desc">${l.desc}</div>
+      ${l.traits.map(t=>`<div class="loc-trait">✓ ${t}</div>`).join('')}
+    </div>`).join('');
+
+  return `<div class="setup fade">
+    <div class="game-title">🍋 Lemonade Stand</div>
+    <p class="game-sub">Start your empire, one cup at a time</p>
+    <div class="card">
+      <div class="card-title">📍 Choose Your Location</div>
+      <div class="loc-cards">${locCards}</div>
+    </div>
+    <div class="card rules">
+      <div class="card-title">📋 How to Play</div>
+      <p>• Each morning check the <strong>weather forecast</strong> and buy ingredients for the day</p>
+      <p>• <strong>Ice</strong> melts overnight — buy fresh daily &nbsp;|&nbsp; <strong>Lemons</strong> last a week &nbsp;|&nbsp; <strong>Sugar</strong> lasts months</p>
+      <p>• Hot days = lots of thirsty customers. Cold or stormy = stay home and save your supplies</p>
+      <p>• Set your price wisely — too high and customers walk. You start with <strong>${fmt(START_MONEY)}</strong></p>
+      <p>• If you go broke and have no supplies left, the game is over!</p>
+    </div>
+    <button class="btn btn-y btn-full" onclick="startGame()"
+      ${!G.loc?'disabled':''} style="font-size:1.1rem">
+      ${G.loc?'Start Game →':'Select a location first'}
+    </button>
+  </div>`;
+}
+
+function renderHeader(){
+  return `<div class="hdr">
+    <div class="hdr-title">🍋 Lemonade Stand</div>
+    <div class="hdr-stats">
+      <div class="stat">Day ${G.day}</div>
+      <div class="stat">${fmt(G.money)}</div>
+      <div class="stat">${LOCS[G.loc].icon} ${LOCS[G.loc].name}</div>
+    </div>
+  </div>`;
+}
+
+function renderInvRows(){
+  const items=[
+    {t:'lemon',icon:'🍋',name:'Lemons'},
+    {t:'sugar',icon:'🍬',name:'Sugar'},
+    {t:'ice',  icon:'🧊',name:'Ice'},
+  ];
+  return items.map(({t,icon,name})=>{
+    const total=invTotal(t);
+    if(total===0) return `<div class="inv-row"><span>${icon}</span><span class="inv-qty">0</span><span style="color:#bbb">${name} — none</span></div>`;
+    return G.inv[t].map(b=>{
+      const dl=b.exp-G.day;
+      const cls=dl<=1?'exp-crit':dl<=3?'exp-warn':'';
+      const txt=dl<=1?'expires TODAY!':dl<=3?`expires in ${dl}d`:`expires in ${dl}d`;
+      return `<div class="inv-row"><span>${icon}</span><span class="inv-qty">${b.qty}</span><span>${name}</span><span class="inv-exp ${cls}">${txt}</span></div>`;
+    }).join('');
+  }).join('');
+}
+
+function renderShop(){
+  const items=[
+    {t:'lemon',icon:'🍋',name:'Lemons',       detail:`${fmt(PRICES.lemon)} each · lasts 7 days`},
+    {t:'sugar',icon:'🍬',name:'Sugar (serving)',detail:`${fmt(PRICES.sugar)} each · lasts months`},
+    {t:'ice',  icon:'🧊',name:'Ice (serving)', detail:`${fmt(PRICES.ice)} each · melts overnight!`},
+  ];
+  return items.map(({t,icon,name,detail})=>`
+    <div class="ing-row">
+      <div class="ing-icon">${icon}</div>
+      <div class="ing-info"><div class="ing-name">${name}</div><div class="ing-detail">${detail}</div></div>
+      <div class="ing-ctrl">
+        <button class="qbtn" onclick="adj('${t}',-5)">-5</button>
+        <button class="qbtn" onclick="adj('${t}',-1)">-</button>
+        <div class="qdsp">${G.pending[t]}</div>
+        <button class="qbtn" onclick="adj('${t}',1)">+</button>
+        <button class="qbtn" onclick="adj('${t}',5)">+5</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderPlanning(){
+  const cost=pendingCost(), afford=G.money-cost, cups=cupsAfterBuy();
+  const wx=G.weather, fx=G.forecastWeather;
+
+  // Expiry warnings
+  const warns=[];
+  G.inv.lemon.forEach(b=>{ const d=b.exp-G.day; if(d<=2) warns.push(`⚠️ ${b.qty} lemon(s) expire in ${d} day(s)!`); });
+
+  return `<div class="fade">
+    ${renderHeader()}
+
+    ${warns.length?`<div class="alert alert-w">${warns.join('<br>')}</div>`:''}
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">☀️ Today</div>
+        <div class="wx-card">
+          <div class="wx-icon">${wx.icon}</div>
+          <div class="wx-name">${wx.name}</div>
+          <div class="wx-temp">${wx.temp}</div>
+          <div class="wx-desc">${wx.desc}</div>
+          <div style="margin-top:6px">${demandBadge(wx.demand)}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔮 Tomorrow's Forecast</div>
+        <div class="wx-card" style="opacity:.85">
+          <div class="wx-icon">${fx.icon}</div>
+          <div class="wx-name">${fx.name}</div>
+          <div class="wx-temp">${fx.temp}</div>
+          <div class="wx-desc" style="font-style:italic">"${fxQuote(fx)}"</div>
+          <div style="font-size:.72rem;color:#bbb;margin-top:4px">May not be 100% accurate</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📦 Current Inventory</div>
+      ${renderInvRows()}
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛒 Buy Supplies</div>
+      ${renderShop()}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:.88rem">
+        <span style="color:var(--muted)">Purchase total: <strong style="color:${cost>0?'var(--r)':'inherit'}">${fmt(cost)}</strong></span>
+        <span style="color:var(--muted)">After: <strong>${fmt(afford)}</strong></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 Set Your Price</div>
+      <div class="price-row">
+        <span style="font-weight:700;font-size:1.1rem">$</span>
+        <input class="price-inp" id="priceInp" type="number" min=".10" max="9.99" step=".05"
+          value="${G.price.toFixed(2)}" onchange="setPrice(this.value)">
+        <div class="price-hint">${priceHint(G.price,wx)}</div>
+      </div>
+      <div class="quick-prices">
+        ${[0.50,0.75,1.00,1.25,1.50].map(p=>`
+          <button class="btn ${Math.abs(G.price-p)<.01?'btn-y':'btn-w'}" onclick="quickPrice(${p})">${fmt(p)}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="cups-box">
+      <div class="cups-num">${cups}</div>
+      <div class="cups-lbl">cups you can make today</div>
+      ${cups===0?'<div style="color:var(--r);font-size:.82rem;margin-top:4px">Buy supplies to open!</div>':''}
+    </div>
+
+    <button class="btn btn-g btn-full" onclick="openStand()" ${cost>G.money?'disabled':''}>
+      🍋 Open for Business!
+    </button>
+  </div>`;
+}
+
+function renderSimulation(){
+  return `<div class="fade">
+    ${renderHeader()}
+    <div class="card sim-wrap">
+      <div class="sim-title">🍋 Stand is Open!</div>
+      <div style="color:var(--muted);font-size:.9rem">${G.weather.icon} ${G.weather.name} · ${LOCS[G.loc].name}</div>
+      <div class="prog-bar"><div class="prog-fill" id="pf" style="width:0%"></div></div>
+      <div class="sim-time" id="st">Morning...</div>
+      <div class="sim-count" id="sc">0</div>
+      <div style="color:var(--muted);font-size:.88rem">cups sold</div>
+      <div class="sim-msg" id="sm"></div>
+    </div>
+  </div>`;
+}
+
+function renderInventoryRemaining(){
+  const tl=invTotal('lemon'),ts=invTotal('sugar'),ti=invTotal('ice');
+  const expWarn=[];
+  G.inv.lemon.forEach(b=>{ const d=b.exp-G.day; if(d<=2) expWarn.push(`${b.qty} lemon(s) in ${d}d`); });
+  return `<div class="card">
+    <div class="card-title">📦 Remaining Inventory</div>
+    <div class="grid3" style="text-align:center">
+      ${[['🍋',tl,'Lemons'],['🍬',ts,'Sugar'],['🧊',ti,'Ice (melts!)']].map(([ic,q,nm])=>`
+        <div style="padding:10px;background:var(--yl);border-radius:8px">
+          <div style="font-size:1.6rem">${ic}</div>
+          <div style="font-weight:700;font-size:1.2rem">${q}</div>
+          <div style="font-size:.78rem;color:var(--muted)">${nm}</div>
+        </div>`).join('')}
+    </div>
+    ${expWarn.length?`<div class="alert alert-w" style="margin-top:10px;margin-bottom:0">⚠️ Expiring soon: ${expWarn.join(', ')}</div>`:''}
+  </div>`;
+}
+
+function renderChart(){
+  if(G.history.length<2) return '';
+  const last=G.history.slice(-7);
+  const maxR=Math.max(...last.map(h=>h.rev),0.01);
+  const bars=last.map((h,i)=>{
+    const pct=Math.round((h.rev/maxR)*100);
+    const isLast=i===last.length-1;
+    return `<div class="chart-bar">
+      <div class="chart-fill" style="height:${pct}%;background:${isLast?'var(--y)':'#ccc'}"></div>
+      <div class="chart-lbl">${h.wx.icon}</div>
+    </div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="card-title">📈 Recent Revenue</div>
+    <div class="chart">${bars}</div>
+    <div style="font-size:.72rem;color:#bbb;text-align:center;margin-top:4px">Last ${last.length} days · yellow = today</div>
+  </div>`;
+}
+
+function renderSummary(){
+  const r=G.result;
+  return `<div class="fade">
+    ${renderHeader()}
+    <div class="card">
+      <div class="card-title">📊 Day ${G.day-1} Summary</div>
+      <div class="sum-hero">
+        <div class="sum-emoji">${sumEmoji(r)}</div>
+        <div class="sum-title">${sumTitle(r)}</div>
+        <div class="sum-sub">${r.reaction}</div>
+      </div>
+      <div class="sum-row"><span>Weather</span><span>${r.wx.icon} ${r.wx.name} (${r.wx.temp})</span></div>
+      <div class="sum-row"><span>Potential customers</span><span>${r.pot}</span></div>
+      <div class="sum-row"><span>Wanted to buy</span><span>${r.want}</span></div>
+      <div class="sum-row"><span>Cups sold</span><span><strong>${r.sold}</strong> × ${fmt(G.price)} = <span class="pos">${fmt(r.rev)}</span></span></div>
+      ${!r.hasIce&&r.wx.iceWant>=1?`<div class="sum-row"><span style="color:var(--o)">No ice on a warm day</span><span style="color:var(--o)">Lost some customers</span></div>`:''}
+      <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp)}</span></div>
+      <div class="sum-row ttl"><span>Net today</span><span class="${r.net>=0?'pos':'neg'}">${r.net>=0?'+':''}${fmt(r.net)}</span></div>
+      <div class="sum-row ttl"><span>Balance</span><span>${fmt(G.money)}</span></div>
+    </div>
+    ${renderInventoryRemaining()}
+    ${renderChart()}
+    <button class="btn btn-y btn-full" onclick="nextDay()">Day ${G.day} →</button>
+  </div>`;
+}
+
+function renderGameOver(){
+  const days=G.day-1;
+  const totRev=G.history.reduce((s,h)=>s+h.rev,0);
+  const best=G.history.reduce((b,h)=>h.sold>b.sold?h:b,{sold:0,wx:{icon:'',name:''}});
+  return `<div class="go fade">
+    <div class="go-title">💸 Bankrupt!</div>
+    <p style="color:var(--muted);margin-bottom:24px">You ran out of money and supplies.</p>
+    <div class="card">
+      <div class="card-title">📊 Final Stats</div>
+      <div class="sum-row"><span>Days survived</span><span><strong>${days}</strong></span></div>
+      <div class="sum-row"><span>Total revenue</span><span>${fmt(totRev)}</span></div>
+      <div class="sum-row"><span>Best day</span><span>${best.sold} cups ${best.wx.icon?`(${best.wx.icon} ${best.wx.name})`:'sold'}</span></div>
+      <div class="sum-row"><span>Location</span><span>${LOCS[G.loc].icon} ${LOCS[G.loc].name}</span></div>
+    </div>
+    <button class="btn btn-y btn-full" onclick="resetGame()">🍋 Try Again</button>
+  </div>`;
+}
+
+// ── EVENT HANDLERS ───────────────────────────────────────────
+function selectLoc(id){ G.loc=id; render(); }
+
+function startGame(){
+  if(!G.loc) return;
+  G.weather    = pickWeather();
+  G.nextWeather= pickWeather();
+  G.forecastWeather = makeForecast(G.nextWeather);
+  G.screen='planning'; render();
+}
+
+function adj(t, delta){
+  const cur=pendingCost(), price=PRICES[t];
+  const newQ=Math.max(0, G.pending[t]+delta);
+  const diff=(newQ-G.pending[t])*price;
+  if(diff>0 && cur+diff>G.money){
+    const canBuy=Math.floor((G.money-cur)/price);
+    G.pending[t]=G.pending[t]+Math.max(0,canBuy);
+  } else {
+    G.pending[t]=newQ;
+  }
+  render();
+}
+
+function setPrice(v){
+  G.price=clamp(parseFloat(v)||1,0.10,9.99);
+  render();
+}
+function quickPrice(v){ G.price=v; render(); }
+
+function openStand(){
+  if(pendingCost()>G.money) return;
+  G.spend=0;
+  buyItem('lemon',G.pending.lemon);
+  buyItem('sugar',G.pending.sugar);
+  buyItem('ice',  G.pending.ice);
+  G.pending={lemon:0,sugar:0,ice:0};
+  G.screen='simulation'; render();
+  setTimeout(runSim, 80);
+}
+
+async function runSim(){
+  const result = simulateDay();
+  G.result = result;
+
+  const times=['Morning...','Mid-morning...','Noon rush!','Afternoon...','Winding down...'];
+  const msgs=['Customers starting to arrive...','Busy period!','Rush hour!','Slowing down...','Closing up for the day...'];
+  const STEPS=60, DUR=3400, STEP_MS=DUR/STEPS;
+
+  for(let i=0;i<=STEPS;i++){
+    await new Promise(r=>setTimeout(r,STEP_MS));
+    const pf=$('pf'), sc=$('sc'), st=$('st'), sm=$('sm');
+    if(!pf) return;
+    const pct=i/STEPS;
+    pf.style.width=(pct*100)+'%';
+    if(st) st.textContent=times[Math.min(4,Math.floor(pct*5))];
+    if(sc) sc.textContent=Math.round(pct*result.sold);
+    if(sm && i%12===0) sm.textContent=msgs[Math.min(4,Math.floor(pct*5))];
+  }
+
+  G.day++;
+  expireInv();
+
+  // Check game over
+  const canMake = maxCups(false);
+  const minBuy  = PRICES.lemon + PRICES.sugar; // cheapest cup without ice
+  if(canMake===0 && G.money<minBuy){ G.screen='gameover'; render(); return; }
+
+  await new Promise(r=>setTimeout(r,600));
+  G.screen='summary'; render();
+}
+
+function nextDay(){
+  // Advance weather
+  G.weather = G.nextWeather;
+  G.nextWeather = pickWeather();
+  G.forecastWeather = makeForecast(G.nextWeather);
+  G.spend=0; G.pending={lemon:0,sugar:0,ice:0};
+
+  // Final game-over check
+  const canMake=maxCups(false);
+  const minBuy=PRICES.lemon+PRICES.sugar;
+  if(canMake===0 && G.money<minBuy){ G.screen='gameover'; }
+  else { G.screen='planning'; }
+  render();
+}
+
+function resetGame(){
+  G={screen:'setup',money:START_MONEY,day:1,loc:null,
+     inv:{lemon:[],sugar:[],ice:[]},price:1.00,
+     weather:null,nextWeather:null,forecastWeather:null,
+     spend:0,pending:{lemon:0,sugar:0,ice:0},
+     result:null,history:[]};
+  render();
+}
+
+// ── MAIN RENDER ──────────────────────────────────────────────
+function render(){
+  const app=document.getElementById('app');
+  switch(G.screen){
+    case 'setup':       app.innerHTML=renderSetup();      break;
+    case 'planning':    app.innerHTML=renderPlanning();   break;
+    case 'simulation':  app.innerHTML=renderSimulation(); break;
+    case 'summary':     app.innerHTML=renderSummary();    break;
+    case 'gameover':    app.innerHTML=renderGameOver();   break;
+  }
+}
+
+render();
+</script>
+</body>
+</html>
