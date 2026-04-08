@@ -68,9 +68,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .qdsp{min-width:36px;text-align:center;font-weight:700;font-size:.9rem}
 
 /* ADVERTISING */
-.ad-tiers{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.ad-tiers .btn{padding:5px 12px;font-size:.82rem}
-.ad-effect{font-size:.85rem;margin-top:8px;min-height:20px}
+.ad-list{display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto;padding-right:2px}
+.ad-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .12s;border:2px solid transparent}
+.ad-row:hover:not(.ad-locked){background:var(--yl)}
+.ad-row.ad-sel{background:var(--yl);border-color:var(--y)}
+.ad-row.ad-locked{opacity:.38;cursor:default}
+.ad-dot{width:16px;height:16px;border:2px solid var(--border);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem}
+.ad-sel .ad-dot{background:var(--y);border-color:var(--yd)}
+.ad-icon{font-size:1.2rem;width:26px;text-align:center;flex-shrink:0}
+.ad-info{flex:1;min-width:0}
+.ad-name{font-weight:600;font-size:.87rem}
+.ad-desc{font-size:.75rem;color:var(--muted)}
+.ad-right{text-align:right;flex-shrink:0;min-width:64px}
+.ad-cost{font-weight:700;font-size:.85rem}
+.ad-boost{font-size:.73rem;color:var(--gd)}
 
 /* INVENTORY */
 .inv-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.88rem}
@@ -183,13 +194,28 @@ const LOCS = {
   country: {id:'country', name:'Country', icon:'🌾', base:18, elas:1.45, desc:'Quiet roads and regulars. Customers know value and expect fair prices.', traits:['Lower traffic','Very price‑sensitive','Weather‑dependent']},
 };
 
+const AD_TIERS = [
+  {id:'none',       name:'No advertising',          icon:'—',   cost:0,         mult:1.0,  desc:'Just open the stand and hope for the best'},
+  {id:'sign',       name:'Friend with a sign',       icon:'🪧',  cost:1,         mult:1.15, desc:'Your buddy waves people over from the sidewalk'},
+  {id:'flyers',     name:'Handmade flyers',           icon:'📄',  cost:3,         mult:1.35, desc:'Stapled to every telephone pole in the neighborhood'},
+  {id:'newspaper',  name:'Newspaper ad',              icon:'📰',  cost:5,         mult:1.55, desc:'Quarter-page ad in the local gazette'},
+  {id:'social',     name:'Social media post',         icon:'📱',  cost:15,        mult:1.90, desc:'Boosted post hitting local feeds all morning'},
+  {id:'radio',      name:'Local radio spot',          icon:'📻',  cost:40,        mult:2.40, desc:'30-second spot on morning drive-time radio'},
+  {id:'banner',     name:'Online banner ads',         icon:'💻',  cost:100,       mult:3.20, desc:'Targeted display ads all over the web'},
+  {id:'billboard',  name:'Billboard',                 icon:'🪟',  cost:1000,      mult:5.50, desc:'Your stand on a massive roadside billboard'},
+  {id:'tv',         name:'Local TV commercial',       icon:'📺',  cost:5000,      mult:9.00, desc:'30-second spot on the evening local news'},
+  {id:'influencer', name:'Influencer deal',           icon:'⭐',  cost:25000,     mult:16.0, desc:'A famous foodie visits and posts to 2M followers'},
+  {id:'national',   name:'National TV ad',            icon:'🎬',  cost:100000,    mult:28.0, desc:'Prime-time commercial, coast to coast'},
+  {id:'superbowl',  name:'Super Bowl commercial',     icon:'🏈',  cost:1000000,   mult:60.0, desc:'100 million viewers. The ultimate flex.'},
+];
+
 // ── STATE ─────────────────────────────────────────────────────
 let G = {
   screen:'setup', money:START_MONEY, day:1, loc:null,
   inv:{ lemon:[], sugar:[], ice:[] }, // [{qty,exp}]
   price:1.00,
   weather:null, nextWeather:null, forecastWeather:null,
-  spend:0, pending:{lemon:0,sugar:0,ice:0,ad:0},
+  spend:0, pending:{lemon:0,sugar:0,ice:0}, adTier:'none',
   result:null, history:[]
 };
 
@@ -254,9 +280,9 @@ function simulateDay(){
   const loc = LOCS[G.loc], wx = G.weather;
   const hasIce = invTotal('ice')>0;
 
-  // Potential customers (advertising boosts reach with diminishing returns)
-  const adBoost = adMult(G.pending.ad);
-  let pot = loc.base * wx.demand * adBoost * rng(0.8,1.2);
+  // Potential customers
+  const tier = getAdTier();
+  let pot = loc.base * wx.demand * tier.mult * rng(0.8,1.2);
   pot = Math.round(pot);
 
   // Price effect — sweet spot around $0.75–$1.10
@@ -285,7 +311,7 @@ function simulateDay(){
   else if(sold<want*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
   else reaction='Ran out near the end of the day.';
 
-  const r = {pot,want,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adSpend:G.pending.ad,adBoost};
+  const r = {pot,want,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTier:tier};
   G.history.push(r);
   return r;
 }
@@ -330,18 +356,10 @@ function sumTitle(r){
 }
 
 function pendingCost(){
-  return G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice+G.pending.ad;
+  return G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice+getAdTier().cost;
 }
 
-function adMult(spend){ return 1 + (spend/(spend+8))*1.8; }
-
-function adEffect(spend){
-  if(spend<=0) return '<span style="color:var(--muted)">No boost</span>';
-  const pct=Math.round((adMult(spend)-1)*100);
-  if(pct<25) return `<span class="pos">+${pct}% more customers</span>`;
-  if(pct<60) return `<span class="pos">+${pct}% more customers — nice reach!</span>`;
-  return `<span class="pos">+${pct}% more customers — strong buzz!</span>`;
-}
+function getAdTier(id){ return AD_TIERS.find(t=>t.id===(id||G.adTier))||AD_TIERS[0]; }
 
 function cupsAfterBuy(){
   return Math.min(
@@ -380,7 +398,7 @@ function renderSetup(){
       <p>• <strong>Ice</strong> melts overnight — buy fresh daily &nbsp;|&nbsp; <strong>Lemons</strong> last a week &nbsp;|&nbsp; <strong>Sugar</strong> lasts months</p>
       <p>• Hot days = lots of thirsty customers. Cold or stormy = stay home and save your supplies</p>
       <p>• Set your price wisely — too high and customers walk. You start with <strong>${fmt(START_MONEY)}</strong></p>
-      <p>• Spend on <strong>advertising</strong> to bring in more customers — but returns diminish quickly</p>
+      <p>• Choose an <strong>advertising</strong> option each day — from a friend with a sign to a Super Bowl commercial</p>
       <p>• If you go broke and have no supplies left, the game is over!</p>
     </div>
     <button class="btn btn-y btn-full" onclick="startGame()"
@@ -502,16 +520,26 @@ function renderPlanning(){
 
     <div class="card">
       <div class="card-title">📣 Advertising</div>
-      <div style="font-size:.83rem;color:var(--muted);margin-bottom:8px">Spend money today to bring more customers to your stand. Returns diminish as you spend more.</div>
-      <div class="price-row">
-        <span style="font-weight:700;font-size:1.1rem">$</span>
-        <input class="price-inp" id="adInp" type="number" min="0" max="99" step="0.50"
-          value="${G.pending.ad.toFixed(2)}" onchange="setAd(this.value)">
-        <div style="flex:1;font-size:.82rem">${adEffect(G.pending.ad)}</div>
-      </div>
-      <div class="ad-tiers">
-        ${[0,1,2,5,10].map(v=>`
-          <button class="btn ${Math.abs(G.pending.ad-v)<.01?'btn-y':'btn-w'}" onclick="quickAd(${v})">${v===0?'None':'$'+v}</button>`).join('')}
+      <div class="ad-list">
+        ${AD_TIERS.map(t=>{
+          const sel = G.adTier===t.id;
+          const supCost = G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice;
+          const locked = t.cost > G.money - supCost && !sel;
+          const boostTxt = t.mult>1 ? `+${Math.round((t.mult-1)*100)}% customers` : 'No boost';
+          const costTxt  = t.cost===0 ? 'Free' : t.cost>=1000 ? '$'+t.cost.toLocaleString() : '$'+t.cost;
+          return `<div class="ad-row${sel?' ad-sel':''}${locked?' ad-locked':''}" onclick="selectAdTier('${t.id}')">
+            <div class="ad-dot">${sel?'✓':''}</div>
+            <div class="ad-icon">${t.icon}</div>
+            <div class="ad-info">
+              <div class="ad-name">${t.name}</div>
+              <div class="ad-desc">${t.desc}</div>
+            </div>
+            <div class="ad-right">
+              <div class="ad-cost">${costTxt}</div>
+              <div class="ad-boost">${boostTxt}</div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>
 
@@ -619,8 +647,8 @@ function renderSummary(){
       <div class="sum-row"><span>Wanted to buy</span><span>${r.want}</span></div>
       <div class="sum-row"><span>Cups sold</span><span><strong>${r.sold}</strong> × ${fmt(G.price)} = <span class="pos">${fmt(r.rev)}</span></span></div>
       ${!r.hasIce&&r.wx.iceWant>=1?`<div class="sum-row"><span style="color:var(--o)">No ice on a warm day</span><span style="color:var(--o)">Lost some customers</span></div>`:''}
-      ${r.adSpend>0?`<div class="sum-row"><span>📣 Advertising</span><span class="neg">-${fmt(r.adSpend)} <span style="color:var(--muted);font-weight:400">(+${Math.round((r.adBoost-1)*100)}% reach)</span></span></div>`:''}
-      <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adSpend)}</span></div>
+      ${r.adTier.cost>0?`<div class="sum-row"><span>${r.adTier.icon} ${r.adTier.name}</span><span class="neg">-${r.adTier.cost>=1000?'$'+r.adTier.cost.toLocaleString():fmt(r.adTier.cost)} <span style="color:var(--muted);font-weight:400">(+${Math.round((r.adTier.mult-1)*100)}% reach)</span></span></div>`:''}
+      <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adTier.cost)}</span></div>
       <div class="sum-row ttl"><span>Net today</span><span class="${r.net>=0?'pos':'neg'}">${r.net>=0?'+':''}${fmt(r.net)}</span></div>
       <div class="sum-row ttl"><span>Balance</span><span>${fmt(G.money)}</span></div>
     </div>
@@ -674,12 +702,13 @@ function adj(t, delta){
 
 function resetItem(t){ G.pending[t]=0; render(); }
 
-function setAd(v){
+function selectAdTier(id){
+  const t = getAdTier(id);
   const supCost=G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice;
-  G.pending.ad=clamp(Math.round((parseFloat(v)||0)*100)/100, 0, Math.max(0,G.money-supCost));
+  if(t.cost > G.money - supCost) return; // can't afford
+  G.adTier = id;
   render();
 }
-function quickAd(v){ setAd(v); }
 
 function setPrice(v){
   G.price=clamp(parseFloat(v)||1,0.10,9.99);
@@ -693,10 +722,11 @@ function openStand(){
   buyItem('lemon',G.pending.lemon);
   buyItem('sugar',G.pending.sugar);
   buyItem('ice',  G.pending.ice);
-  // Deduct ad spend (not inventory, just cash out)
-  if(G.pending.ad>0){
-    G.money = Math.round((G.money-G.pending.ad)*100)/100;
-    G.spend = Math.round((G.spend+G.pending.ad)*100)/100;
+  // Deduct ad spend
+  const adCost = getAdTier().cost;
+  if(adCost>0){
+    G.money = Math.round((G.money-adCost)*100)/100;
+    G.spend = Math.round((G.spend+adCost)*100)/100;
   }
   G.screen='simulation'; render();
   setTimeout(runSim, 80);
@@ -738,7 +768,7 @@ function nextDay(){
   G.weather = G.nextWeather;
   G.nextWeather = pickWeather();
   G.forecastWeather = makeForecast(G.nextWeather);
-  G.spend=0; G.pending={lemon:0,sugar:0,ice:0,ad:0};
+  G.spend=0; G.pending={lemon:0,sugar:0,ice:0}; G.adTier='none';
 
   // Final game-over check
   const canMake=maxCups(false);
@@ -752,7 +782,7 @@ function resetGame(){
   G={screen:'setup',money:START_MONEY,day:1,loc:null,
      inv:{lemon:[],sugar:[],ice:[]},price:1.00,
      weather:null,nextWeather:null,forecastWeather:null,
-     spend:0,pending:{lemon:0,sugar:0,ice:0,ad:0},
+     spend:0,pending:{lemon:0,sugar:0,ice:0},adTier:'none',
      result:null,history:[]};
   render();
 }
