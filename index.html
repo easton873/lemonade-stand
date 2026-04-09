@@ -66,6 +66,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .qbtn-reset{border-color:var(--border);color:var(--muted)}
 .qbtn-reset:hover{background:#f4f4f4;border-color:#bbb}
 .qdsp{min-width:36px;text-align:center;font-weight:700;font-size:.9rem}
+.qty-inp{width:54px;height:26px;padding:0 4px;border:2px solid var(--border);border-radius:6px;text-align:center;font-size:.85rem;font-weight:700}
+.qty-inp:focus{border-color:var(--y);outline:none}
+.bulk-badge{display:inline-block;background:#E8F5E9;color:#1B5E20;border-radius:10px;padding:1px 7px;font-size:.72rem;font-weight:700}
 
 /* ADVERTISING */
 .ad-list{display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto;padding-right:2px}
@@ -195,19 +198,22 @@ const LOCS = {
 };
 
 const AD_TIERS = [
-  {id:'none',       name:'No advertising',          icon:'—',   cost:0,         mult:1.0,  desc:'Just open the stand and hope for the best'},
-  {id:'sign',       name:'Friend with a sign',       icon:'🪧',  cost:1,         mult:1.15, desc:'Your buddy waves people over from the sidewalk'},
-  {id:'flyers',     name:'Handmade flyers',           icon:'📄',  cost:3,         mult:1.35, desc:'Stapled to every telephone pole in the neighborhood'},
-  {id:'newspaper',  name:'Newspaper ad',              icon:'📰',  cost:5,         mult:1.55, desc:'Quarter-page ad in the local gazette'},
-  {id:'social',     name:'Social media post',         icon:'📱',  cost:15,        mult:1.90, desc:'Boosted post hitting local feeds all morning'},
-  {id:'radio',      name:'Local radio spot',          icon:'📻',  cost:40,        mult:2.40, desc:'30-second spot on morning drive-time radio'},
-  {id:'banner',     name:'Online banner ads',         icon:'💻',  cost:100,       mult:3.20, desc:'Targeted display ads all over the web'},
-  {id:'billboard',  name:'Billboard',                 icon:'🪟',  cost:1000,      mult:5.50, desc:'Your stand on a massive roadside billboard'},
-  {id:'tv',         name:'Local TV commercial',       icon:'📺',  cost:5000,      mult:9.00, desc:'30-second spot on the evening local news'},
-  {id:'influencer', name:'Influencer deal',           icon:'⭐',  cost:25000,     mult:16.0, desc:'A famous foodie visits and posts to 2M followers'},
-  {id:'national',   name:'National TV ad',            icon:'🎬',  cost:100000,    mult:28.0, desc:'Prime-time commercial, coast to coast'},
-  {id:'superbowl',  name:'Super Bowl commercial',     icon:'🏈',  cost:1000000,   mult:60.0, desc:'100 million viewers. The ultimate flex.'},
+  {id:'none',       name:'No advertising',          icon:'—',   cost:0,         mult:1.0,    desc:'Just open the stand and hope for the best'},
+  {id:'sign',       name:'Friend with a sign',       icon:'🪧',  cost:1,         mult:1.20,   desc:'Your buddy waves people over from the sidewalk'},
+  {id:'flyers',     name:'Handmade flyers',           icon:'📄',  cost:3,         mult:1.45,   desc:'Stapled to every telephone pole in the neighborhood'},
+  {id:'newspaper',  name:'Newspaper ad',              icon:'📰',  cost:5,         mult:1.70,   desc:'Quarter-page ad in the local gazette'},
+  {id:'social',     name:'Social media post',         icon:'📱',  cost:15,        mult:2.20,   desc:'Boosted post hitting local feeds all morning'},
+  {id:'radio',      name:'Local radio spot',          icon:'📻',  cost:40,        mult:3.20,   desc:'30-second spot on morning drive-time radio'},
+  {id:'banner',     name:'Online banner ads',         icon:'💻',  cost:100,       mult:5.00,   desc:'Targeted display ads all over the web'},
+  {id:'billboard',  name:'Billboard',                 icon:'🪟',  cost:1000,      mult:12.0,   desc:'Your stand on a massive roadside billboard'},
+  {id:'tv',         name:'Local TV commercial',       icon:'📺',  cost:5000,      mult:40.0,   desc:'30-second spot on the evening local news'},
+  {id:'influencer', name:'Influencer deal',           icon:'⭐',  cost:25000,     mult:150.0,  desc:'A famous foodie visits and posts to 2M followers'},
+  {id:'national',   name:'National TV ad',            icon:'🎬',  cost:100000,    mult:500.0,  desc:'Prime-time commercial, coast to coast'},
+  {id:'superbowl',  name:'Super Bowl commercial',     icon:'🏈',  cost:1000000,   mult:2000.0, desc:'100 million viewers. The ultimate flex.'},
 ];
+
+// Supply bulk discount tiers: [minQty, discountFraction]
+const BULK_BREAKS = [[5000,.50],[1000,.35],[500,.20],[100,.10]];
 
 // ── STATE ─────────────────────────────────────────────────────
 let G = {
@@ -221,6 +227,30 @@ let G = {
 
 // ── UTILS ─────────────────────────────────────────────────────
 const $  = id => document.getElementById(id);
+
+function supplyPrice(t, qty){
+  const base = PRICES[t];
+  for(const [min,disc] of BULK_BREAKS) if(qty>=min) return Math.round(base*(1-disc)*1000)/1000;
+  return base;
+}
+
+// Max qty of type t affordable within budget (respects tier pricing)
+function maxQtyAffordable(t, budget){
+  if(budget<=0) return 0;
+  for(const [min,disc] of BULK_BREAKS){
+    const price = PRICES[t]*(1-disc);
+    const q = Math.floor(budget/price);
+    if(q>=min) return q;
+  }
+  return Math.floor(budget/PRICES[t]);
+}
+
+function bulkLabel(qty){
+  for(const [min,disc] of BULK_BREAKS)
+    if(qty>=min) return {pct:Math.round(disc*100), next:null};
+  const next = BULK_BREAKS[BULK_BREAKS.length-1];
+  return {pct:0, next:{min:next[0], pct:Math.round(next[1]*100)}};
+}
 const fmt = n  => '$'+Math.abs(n).toFixed(2);
 const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
 const rng = (lo,hi) => lo + Math.random()*(hi-lo);
@@ -252,7 +282,7 @@ function useIngredients(cups, useIce){
 
 function buyItem(type, qty){
   if(qty<=0) return;
-  const cost = PRICES[type]*qty;
+  const cost = Math.round(supplyPrice(type,qty)*qty*100)/100;
   G.money -= cost; G.money = Math.round(G.money*100)/100;
   G.spend += cost;
   const exp = G.day + EXPIRY[type];
@@ -356,7 +386,7 @@ function sumTitle(r){
 }
 
 function pendingCost(){
-  return G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice+getAdTier().cost;
+  return ['lemon','sugar','ice'].reduce((s,t)=>s+supplyPrice(t,G.pending[t])*G.pending[t],0)+getAdTier().cost;
 }
 
 function getAdTier(id){ return AD_TIERS.find(t=>t.id===(id||G.adTier))||AD_TIERS[0]; }
@@ -455,24 +485,34 @@ function renderInvRows(){
 }
 
 function renderShop(){
-  const items=[
-    {t:'lemon',icon:'🍋',name:'Lemons',       detail:`${fmt(PRICES.lemon)} each · lasts 7 days`},
-    {t:'sugar',icon:'🍬',name:'Sugar (serving)',detail:`${fmt(PRICES.sugar)} each · lasts months`},
-    {t:'ice',  icon:'🧊',name:'Ice (serving)', detail:`${fmt(PRICES.ice)} each · melts overnight!`},
-  ];
-  return items.map(({t,icon,name,detail})=>`
-    <div class="ing-row">
-      <div class="ing-icon">${icon}</div>
-      <div class="ing-info"><div class="ing-name">${name}</div><div class="ing-detail">${detail}</div></div>
+  const expiries = {lemon:'7 days', sugar:'months', ice:'overnight!'};
+  return ['lemon','sugar','ice'].map(t=>{
+    const icons={lemon:'🍋',sugar:'🍬',ice:'🧊'};
+    const names={lemon:'Lemons',sugar:'Sugar (serving)',ice:'Ice (serving)'};
+    const qty = G.pending[t];
+    const price = supplyPrice(t, qty);
+    const bulk = bulkLabel(qty);
+    const priceStr = qty>0 ? `$${price.toFixed(3)} each` : `$${PRICES[t].toFixed(2)} each`;
+    const discBadge = bulk.pct>0
+      ? `<span class="bulk-badge">-${bulk.pct}% bulk</span>`
+      : bulk.next ? `<span style="color:#bbb;font-size:.72rem">buy ${bulk.next.min}+ for ${bulk.next.pct}% off</span>` : '';
+    return `<div class="ing-row">
+      <div class="ing-icon">${icons[t]}</div>
+      <div class="ing-info">
+        <div class="ing-name">${names[t]}</div>
+        <div class="ing-detail">${priceStr} · lasts ${expiries[t]} &nbsp;${discBadge}</div>
+      </div>
       <div class="ing-ctrl">
         <button class="qbtn qbtn-reset" onclick="resetItem('${t}')" title="Reset to 0">↺</button>
         <button class="qbtn" onclick="adj('${t}',-1)">−</button>
-        <div class="qdsp">${G.pending[t]}</div>
+        <input class="qty-inp" type="number" min="0" value="${qty}"
+          onchange="setQty('${t}',this.value)" oninput="setQty('${t}',this.value)">
         <button class="qbtn" onclick="adj('${t}',1)">+</button>
-        <button class="qbtn" onclick="adj('${t}',5)">+5</button>
         <button class="qbtn" onclick="adj('${t}',100)">+100</button>
+        <button class="qbtn" onclick="adj('${t}',1000)">+1k</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderPlanning(){
@@ -539,7 +579,7 @@ function renderPlanning(){
       <div class="ad-list">
         ${AD_TIERS.map(t=>{
           const sel = G.adTier===t.id;
-          const supCost = G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice;
+          const supCost = pendingCost() - getAdTier().cost;
           const locked = t.cost > G.money - supCost && !sel;
           const boostTxt = t.mult>1 ? `+${Math.round((t.mult-1)*100)}% customers` : 'No boost';
           const costTxt  = t.cost===0 ? 'Free' : t.cost>=1000 ? '$'+t.cost.toLocaleString() : '$'+t.cost;
@@ -703,15 +743,18 @@ function startGame(){
 }
 
 function adj(t, delta){
-  const cur=pendingCost(), price=PRICES[t];
-  const newQ=Math.max(0, G.pending[t]+delta);
-  const diff=(newQ-G.pending[t])*price;
-  if(diff>0 && cur+diff>G.money){
-    const canBuy=Math.floor((G.money-cur)/price);
-    G.pending[t]=G.pending[t]+Math.max(0,canBuy);
-  } else {
-    G.pending[t]=newQ;
-  }
+  const otherCost = pendingCost() - supplyPrice(t,G.pending[t])*G.pending[t];
+  const budget = G.money - otherCost;
+  const newQ = Math.max(0, G.pending[t]+delta);
+  G.pending[t] = Math.min(newQ, maxQtyAffordable(t, budget));
+  render();
+}
+
+function setQty(t, val){
+  const otherCost = pendingCost() - supplyPrice(t,G.pending[t])*G.pending[t];
+  const budget = G.money - otherCost;
+  const newQ = Math.max(0, parseInt(val)||0);
+  G.pending[t] = Math.min(newQ, maxQtyAffordable(t, budget));
   render();
 }
 
@@ -723,8 +766,8 @@ function cheatMoney(n){ G.money=Math.round((G.money+n)*100)/100; render(); }
 
 function selectAdTier(id){
   const t = getAdTier(id);
-  const supCost=G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice;
-  if(t.cost > G.money - supCost) return; // can't afford
+  const supCost = pendingCost() - getAdTier().cost;
+  if(t.cost > G.money - supCost) return;
   G.adTier = id;
   render();
 }
