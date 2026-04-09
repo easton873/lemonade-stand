@@ -879,8 +879,10 @@ function render(){
     case 'summary':     app.innerHTML=renderSummary();    break;
     case 'gameover':    app.innerHTML=renderGameOver();   break;
   }
-  if(screenChanged && app.firstElementChild)
-    app.firstElementChild.classList.add('fade');
+  if(screenChanged){
+    window.scrollTo(0,0);
+    if(app.firstElementChild) app.firstElementChild.classList.add('fade');
+  }
 }
 
 render();
