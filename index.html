@@ -376,6 +376,7 @@ function cupsAfterBuyNoIce(){
 }
 
 // ── RENDERERS ────────────────────────────────────────────────
+let forecastOpen = false;
 function renderSetup(){
   const locCards = Object.values(LOCS).map(l=>`
     <div class="loc-card${G.loc===l.id?' sel':''}" onclick="selectLoc('${l.id}')">
@@ -492,15 +493,18 @@ function renderPlanning(){
           <div style="margin-top:6px">${demandBadge(wx.demand)}</div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">🔮 Tomorrow's Forecast</div>
-        <div class="wx-card" style="opacity:.85">
+      <div class="card" style="cursor:pointer" onclick="toggleForecast()">
+        <div class="card-title" style="justify-content:space-between;margin-bottom:${forecastOpen?'12px':'0'}">
+          <span>🔮 Tomorrow's Forecast</span>
+          <span style="font-size:.8rem;color:var(--muted);font-weight:400">${forecastOpen?'▲ hide':'▼ show'}</span>
+        </div>
+        ${forecastOpen?`<div class="wx-card" style="opacity:.85">
           <div class="wx-icon">${fx.icon}</div>
           <div class="wx-name">${fx.name}</div>
           <div class="wx-temp">${fx.temp}</div>
           <div class="wx-desc" style="font-style:italic">"${fxQuote(fx)}"</div>
           <div style="font-size:.72rem;color:#bbb;margin-top:4px">May not be 100% accurate</div>
-        </div>
+        </div>`:''}
       </div>
     </div>
 
@@ -702,6 +706,8 @@ function adj(t, delta){
 
 function resetItem(t){ G.pending[t]=0; render(); }
 
+function toggleForecast(){ forecastOpen=!forecastOpen; render(); }
+
 function selectAdTier(id){
   const t = getAdTier(id);
   const supCost=G.pending.lemon*PRICES.lemon+G.pending.sugar*PRICES.sugar+G.pending.ice*PRICES.ice;
@@ -768,7 +774,7 @@ function nextDay(){
   G.weather = G.nextWeather;
   G.nextWeather = pickWeather();
   G.forecastWeather = makeForecast(G.nextWeather);
-  G.spend=0; G.pending={lemon:0,sugar:0,ice:0}; G.adTier='none';
+  G.spend=0; G.pending={lemon:0,sugar:0,ice:0}; G.adTier='none'; forecastOpen=false;
 
   // Final game-over check
   const canMake=maxCups(false);
