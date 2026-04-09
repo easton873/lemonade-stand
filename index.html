@@ -267,9 +267,9 @@ function expireInv(){
     G.inv[t] = G.inv[t].filter(b=>b.exp > G.day);
 }
 
-function useIngredients(cups, useIce){
-  const types = useIce ? ['lemon','sugar','ice'] : ['lemon','sugar'];
-  for(const t of types){
+function useIngredients(cups, iceQty){
+  // cups = total sold; iceQty = how many of those used ice
+  for(const t of ['lemon','sugar']){
     let need = cups;
     for(const b of G.inv[t]){
       const use = Math.min(b.qty, need);
@@ -277,6 +277,15 @@ function useIngredients(cups, useIce){
       if(need===0) break;
     }
     G.inv[t] = G.inv[t].filter(b=>b.qty>0);
+  }
+  if(iceQty>0){
+    let need = iceQty;
+    for(const b of G.inv.ice){
+      const use = Math.min(b.qty, need);
+      b.qty -= use; need -= use;
+      if(need===0) break;
+    }
+    G.inv.ice = G.inv.ice.filter(b=>b.qty>0);
   }
 }
 
@@ -308,40 +317,48 @@ function makeForecast(actual){
 // ── SIMULATION ───────────────────────────────────────────────
 function simulateDay(){
   const loc = LOCS[G.loc], wx = G.weather;
-  const hasIce = invTotal('ice')>0;
+
+  const iceAvail = invTotal('ice');
+  const lemAvail = invTotal('lemon');
+  const sugAvail = invTotal('sugar');
 
   // Potential customers
   const tier = getAdTier();
   let pot = loc.base * wx.demand * tier.mult * rng(0.8,1.2);
   pot = Math.round(pot);
 
-  // Price effect — cheap prices keep everyone; expensive prices drive people away
+  // Price effect
   const sweet = 0.70 + wx.demand*0.25;
   const priceMult = clamp(1 - (G.price - sweet)*loc.elas*0.55, 0.05, 1.0);
+  const fullWant = Math.round(pot * priceMult);
 
-  // Ice penalty on hot days
-  let iceMult = 1;
-  if(!hasIce){
-    if(wx.iceWant>=1.5) iceMult=0.55;
-    else if(wx.iceWant>=1.0) iceMult=0.78;
-  }
+  // Phase 1: sell with ice until ice runs out
+  const soldWithIce = Math.min(fullWant, iceAvail, lemAvail, sugAvail);
 
-  const want = Math.round(pot * priceMult * iceMult);
-  const cap  = maxCups(hasIce);
-  const sold = Math.min(want, cap);
+  // Phase 2: remaining customers may still buy without ice (with hot-day penalty)
+  const remainingWant = fullWant - soldWithIce;
+  let noIceMult = 1;
+  if(wx.iceWant>=1.5) noIceMult=0.55;
+  else if(wx.iceWant>=1.0) noIceMult=0.78;
+  const wantNoIce = Math.round(remainingWant * noIceMult);
+  const soldNoIce = Math.min(wantNoIce, lemAvail - soldWithIce, sugAvail - soldWithIce);
+
+  const sold = soldWithIce + soldNoIce;
+  const want = soldWithIce + Math.round(remainingWant * (iceAvail>0||soldWithIce<fullWant ? noIceMult : 1));
   const rev  = Math.round(sold*G.price*100)/100;
   const net  = Math.round((rev-G.spend)*100)/100;
+  const hasIce = iceAvail>0;
 
-  useIngredients(sold, hasIce);
+  useIngredients(sold, soldWithIce);
   G.money = Math.round((G.money+rev)*100)/100;
 
   let reaction = '';
   if(sold===0) reaction='Not a single cup sold today.';
-  else if(sold>=want) reaction = G.price<sweet-0.25 ? 'Customers loved your prices!' : 'Served every customer who came by.';
-  else if(sold<want*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
+  else if(sold>=fullWant) reaction = G.price<sweet-0.25 ? 'Customers loved your prices!' : 'Served every customer who came by.';
+  else if(sold<fullWant*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
   else reaction='Ran out near the end of the day.';
 
-  const r = {pot,want,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTier:tier};
+  const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTier:tier};
   G.history.push(r);
   return r;
 }
