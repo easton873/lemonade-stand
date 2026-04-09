@@ -377,6 +377,7 @@ function cupsAfterBuyNoIce(){
 
 // ── RENDERERS ────────────────────────────────────────────────
 let forecastOpen = false;
+let debugMode = false;
 function renderSetup(){
   const locCards = Object.values(LOCS).map(l=>`
     <div class="loc-card${G.loc===l.id?' sel':''}" onclick="selectLoc('${l.id}')">
@@ -406,6 +407,11 @@ function renderSetup(){
       ${!G.loc?'disabled':''} style="font-size:1.1rem">
       ${G.loc?'Start Game →':'Select a location first'}
     </button>
+    <div style="margin-top:12px;text-align:center">
+      <button class="btn btn-w" onclick="toggleDebug()" style="font-size:.78rem;padding:5px 14px;opacity:.5">
+        ${debugMode?'🛠 Debug: ON':'🛠 Debug mode'}
+      </button>
+    </div>
   </div>`;
 }
 
@@ -479,6 +485,12 @@ function renderPlanning(){
 
   return `<div class="fade">
     ${renderHeader()}
+
+    ${debugMode?`<div style="background:#1a1a1a;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="color:#aaa;font-size:.8rem;font-weight:700;margin-right:4px">🛠 DEBUG</span>
+      ${[10,100,1000,10000,1000000].map(n=>`<button class="btn" onclick="cheatMoney(${n})" style="background:#333;color:#fff;padding:5px 12px;font-size:.82rem">+$${n.toLocaleString()}</button>`).join('')}
+      <button class="btn" onclick="toggleDebug()" style="background:#444;color:#aaa;padding:5px 12px;font-size:.78rem;margin-left:auto">✕ close</button>
+    </div>`:''}
 
     ${warns.length?`<div class="alert alert-w">${warns.join('<br>')}</div>`:''}
 
@@ -706,6 +718,8 @@ function adj(t, delta){
 function resetItem(t){ G.pending[t]=0; render(); }
 
 function toggleForecast(){ forecastOpen=!forecastOpen; render(); }
+function toggleDebug(){ debugMode=!debugMode; render(); }
+function cheatMoney(n){ G.money=Math.round((G.money+n)*100)/100; render(); }
 
 function selectAdTier(id){
   const t = getAdTier(id);
