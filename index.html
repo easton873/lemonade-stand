@@ -54,13 +54,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .d-vlow{background:#EDE7F6;color:#4527A0}
 
 /* SHOP */
-.ing-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.ing-row{padding:10px 0;border-bottom:1px solid var(--border)}
 .ing-row:last-child{border-bottom:none}
+.ing-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .ing-icon{width:38px;height:38px;background:var(--yl);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
 .ing-info{flex:1;min-width:0}
 .ing-name{font-weight:600;font-size:.9rem}
 .ing-detail{font-size:.78rem;color:var(--muted)}
-.ing-ctrl{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ing-ctrl{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .qbtn{min-width:26px;height:26px;padding:0 5px;border:2px solid var(--y);background:#fff;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:center}
 .qbtn:hover{background:var(--yl)}
 .qbtn-reset{border-color:var(--border);color:var(--muted)}
@@ -514,10 +515,12 @@ function renderShop(){
       ? `<span class="bulk-badge">-${bulk.pct}% bulk</span>`
       : bulk.next ? `<span style="color:#bbb;font-size:.72rem">buy ${bulk.next.min}+ for ${bulk.next.pct}% off</span>` : '';
     return `<div class="ing-row">
-      <div class="ing-icon">${icons[t]}</div>
-      <div class="ing-info">
-        <div class="ing-name">${names[t]}</div>
-        <div class="ing-detail">${priceStr} · lasts ${expiries[t]} &nbsp;${discBadge}</div>
+      <div class="ing-header">
+        <div class="ing-icon">${icons[t]}</div>
+        <div class="ing-info">
+          <div class="ing-name">${names[t]}</div>
+          <div class="ing-detail">${priceStr} · lasts ${expiries[t]} &nbsp;${discBadge}</div>
+        </div>
       </div>
       <div class="ing-ctrl">
         <button class="qbtn qbtn-reset" onclick="resetItem('${t}')" title="Reset to 0">↺</button>
