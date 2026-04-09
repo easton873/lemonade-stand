@@ -417,7 +417,7 @@ function renderSetup(){
       ${l.traits.map(t=>`<div class="loc-trait">✓ ${t}</div>`).join('')}
     </div>`).join('');
 
-  return `<div class="setup fade">
+  return `<div class="setup">
     <div class="game-title">🍋 Lemonade Stand</div>
     <p class="game-sub">Start your empire, one cup at a time</p>
     <div class="card">
@@ -523,7 +523,7 @@ function renderPlanning(){
   const warns=[];
   G.inv.lemon.forEach(b=>{ const d=b.exp-G.day; if(d<=2) warns.push(`⚠️ ${b.qty} lemon(s) expire in ${d} day(s)!`); });
 
-  return `<div class="fade">
+  return `<div>
     ${renderHeader()}
 
     ${debugMode?`<div style="background:#1a1a1a;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -636,7 +636,7 @@ function renderPlanning(){
 }
 
 function renderSimulation(){
-  return `<div class="fade">
+  return `<div>
     ${renderHeader()}
     <div class="card sim-wrap">
       <div class="sim-title">🍋 Stand is Open!</div>
@@ -689,7 +689,7 @@ function renderChart(){
 
 function renderSummary(){
   const r=G.result;
-  return `<div class="fade">
+  return `<div>
     ${renderHeader()}
     <div class="card">
       <div class="card-title">📊 Day ${G.day-1} Summary</div>
@@ -717,7 +717,7 @@ function renderGameOver(){
   const days=G.day-1;
   const totRev=G.history.reduce((s,h)=>s+h.rev,0);
   const best=G.history.reduce((b,h)=>h.sold>b.sold?h:b,{sold:0,wx:{icon:'',name:''}});
-  return `<div class="go fade">
+  return `<div class="go">
     <div class="go-title">💸 Bankrupt!</div>
     <p style="color:var(--muted);margin-bottom:24px">You ran out of money and supplies.</p>
     <div class="card">
@@ -850,8 +850,11 @@ function resetGame(){
 }
 
 // ── MAIN RENDER ──────────────────────────────────────────────
+let _prevScreen = null;
 function render(){
   const app=document.getElementById('app');
+  const screenChanged = G.screen !== _prevScreen;
+  _prevScreen = G.screen;
   switch(G.screen){
     case 'setup':       app.innerHTML=renderSetup();      break;
     case 'planning':    app.innerHTML=renderPlanning();   break;
@@ -859,6 +862,8 @@ function render(){
     case 'summary':     app.innerHTML=renderSummary();    break;
     case 'gameover':    app.innerHTML=renderGameOver();   break;
   }
+  if(screenChanged && app.firstElementChild)
+    app.firstElementChild.classList.add('fade');
 }
 
 render();
