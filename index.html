@@ -779,8 +779,9 @@ function renderSummary(){
         <div class="sum-sub">${r.reaction}</div>
       </div>
       <div class="sum-row"><span>Weather</span><span>${r.wx.icon} ${r.wx.name} (${r.wx.temp})</span></div>
-      <div class="sum-row"><span>Customers</span><span>${r.want}</span></div>
+      <div class="sum-row"><span>Potential customers</span><span>${r.pot}</span></div>
       <div class="sum-row"><span>Cups sold</span><span><strong>${r.sold}</strong> × ${fmt(G.price)} = <span class="pos">${fmt(r.rev)}</span></span></div>
+      ${r.pot>r.sold?`<div class="sum-row"><span style="color:var(--muted);font-size:.82rem;padding-left:8px">↳ turned away</span><span style="color:var(--o)">${r.pot-r.sold} ${r.pot-r.want>0&&r.want>r.sold?`(${r.pot-r.want} price · ${r.want-r.sold} supplies)`:(r.pot-r.want>0?`(price)`:`(supplies)`)}</span></div>`:''}
       ${!r.hasIce&&r.wx.iceWant>=1?`<div class="sum-row"><span style="color:var(--o)">No ice on a warm day</span><span style="color:var(--o)">Lost some customers</span></div>`:''}
       ${r.adTier.cost>0?`<div class="sum-row"><span>${r.adTier.icon} ${r.adTier.name}</span><span class="neg">-${r.adTier.cost>=1000?'$'+r.adTier.cost.toLocaleString():fmt(r.adTier.cost)} <span style="color:var(--muted);font-weight:400">(+${Math.round((r.adTier.mult-1)*100)}% reach)</span></span></div>`:''}
       <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adTier.cost)}</span></div>
