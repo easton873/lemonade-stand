@@ -657,6 +657,22 @@ function renderPlanning(){
       </div>
     </div>
 
+    <div class="cups-box">
+      <div class="cups-lbl" style="margin-bottom:10px">cups you can make today</div>
+      <div style="display:flex;justify-content:center;align-items:stretch;gap:0">
+        <div style="flex:1;text-align:center;padding:0 12px">
+          <div class="cups-num">${cups}</div>
+          <div class="cups-lbl" style="margin-top:4px">🧊 with ice</div>
+        </div>
+        <div style="width:1px;background:var(--y);opacity:.4"></div>
+        <div style="flex:1;text-align:center;padding:0 12px">
+          <div class="cups-num" style="color:${cupsPlain>0?'#888':'var(--yd)'}">${cupsPlain}</div>
+          <div class="cups-lbl" style="margin-top:4px">without ice</div>
+        </div>
+      </div>
+      ${cupsPlain===0?'<div style="color:var(--r);font-size:.82rem;margin-top:8px">Buy lemons &amp; sugar to open!</div>':''}
+    </div>
+
     <div class="card">
       <div class="card-title">📣 Advertising</div>
       <div class="ad-list">
@@ -699,22 +715,6 @@ function renderPlanning(){
           <button class="btn ${Math.abs(G.price-p)<.01?'btn-y':'btn-w'}" onclick="quickPrice(${p})">${fmt(p)}</button>`).join('')}
       </div>
       ${G.rep>=100?`<div style="margin-top:8px;font-size:.78rem;color:#c8a840">★ Brand recognition: sweet spot up to <strong>${fmt(0.70+wx.demand*0.25+Math.max(0,brandBoost(G.rep)))}</strong> · price sensitivity reduced ${Math.round(Math.max(0,brandElasReduct(G.rep))*100)}%</div>`:''}
-    </div>
-
-    <div class="cups-box">
-      <div class="cups-lbl" style="margin-bottom:10px">cups you can make today</div>
-      <div style="display:flex;justify-content:center;align-items:stretch;gap:0">
-        <div style="flex:1;text-align:center;padding:0 12px">
-          <div class="cups-num">${cups}</div>
-          <div class="cups-lbl" style="margin-top:4px">🧊 with ice</div>
-        </div>
-        <div style="width:1px;background:var(--y);opacity:.4"></div>
-        <div style="flex:1;text-align:center;padding:0 12px">
-          <div class="cups-num" style="color:${cupsPlain>0?'#888':'var(--yd)'}">${cupsPlain}</div>
-          <div class="cups-lbl" style="margin-top:4px">without ice</div>
-        </div>
-      </div>
-      ${cupsPlain===0?'<div style="color:var(--r);font-size:.82rem;margin-top:8px">Buy lemons &amp; sugar to open!</div>':''}
     </div>
 
     <button class="btn btn-g btn-full" onclick="openStand()" ${cost>G.money?'disabled':''}>
