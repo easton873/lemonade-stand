@@ -713,7 +713,7 @@ function renderShop(){
         <button class="qbtn qbtn-reset" onclick="resetItem('${t}')" title="Reset to 0">↺</button>
         <button class="qbtn" onclick="adj('${t}',-1)">−</button>
         <input class="qty-inp" type="number" min="0" value="${qty}"
-          onchange="setQty('${t}',this.value)" oninput="setQty('${t}',this.value)">
+          onchange="setQty('${t}',this.value)">
         <button class="qbtn" onclick="adj('${t}',1)">+</button>
         <button class="qbtn" onclick="adj('${t}',100)">+100</button>
         <button class="qbtn" onclick="adj('${t}',1000)">+1k</button>
