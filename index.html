@@ -96,6 +96,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .inv-total-row{font-weight:700;border-bottom:1px dashed var(--border);padding-bottom:6px !important;margin-bottom:2px}
 .inv-batch-row{padding-left:22px;opacity:.85}
 
+/* RECIPE */
+.recipe-row{display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 0;flex-wrap:wrap}
+.recipe-ing{display:flex;flex-direction:column;align-items:center;gap:5px}
+.recipe-icon{font-size:1.6rem;line-height:1}
+.recipe-ctrl{display:flex;align-items:center;gap:6px}
+.recipe-num{font-size:1.3rem;font-weight:800;min-width:28px;text-align:center;color:var(--yd)}
+.recipe-lbl{font-size:.73rem;color:var(--muted);text-align:center}
+.recipe-sep{font-size:1.3rem;color:var(--muted);align-self:center;margin-top:-14px}
+.recipe-quality{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);gap:8px;flex-wrap:wrap}
+
 /* PRICE */
 .price-row{display:flex;align-items:center;gap:10px;margin-top:8px}
 .price-inp{width:72px;padding:7px;border:2px solid var(--border);border-radius:8px;font-size:1.1rem;font-weight:700;text-align:center}
@@ -177,8 +187,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="app"></div>
 <script>
 // ── CONSTANTS ────────────────────────────────────────────────
-const PRICES = { lemon:.30, sugar:.10, ice:.05 };
+const PRICES = { lemon:.50, sugar:.20, ice:.05 };
 const EXPIRY  = { lemon:7,   sugar:90,  ice:1  };
+const CUPS_PER_PITCHER = 4; // every pitcher makes this many cups
 const START_MONEY = 20;
 const REP_START   = 50;
 
@@ -222,6 +233,7 @@ let G = {
   screen:'setup', money:START_MONEY, day:1, loc:null,
   inv:{ lemon:[], sugar:[], ice:[] }, // [{qty,exp}]
   price:1.00, rep:REP_START,
+  recipe:{ lemons:2, sugar:3 }, // per pitcher (CUPS_PER_PITCHER cups)
   weather:null, nextWeather:null, forecastWeather:null,
   spend:0, pending:{lemon:0,sugar:0,ice:0}, adTiers:[],
   result:null, history:[]
@@ -260,8 +272,12 @@ const rng = (lo,hi) => lo + Math.random()*(hi-lo);
 function invTotal(t){ return G.inv[t].reduce((s,b)=>s+b.qty,0); }
 
 function maxCups(withIce){
-  const l=invTotal('lemon'), s=invTotal('sugar'), i=invTotal('ice');
-  return withIce ? Math.min(l,s,i) : Math.min(l,s);
+  const lpc = G.recipe.lemons / CUPS_PER_PITCHER;
+  const spc = G.recipe.sugar  / CUPS_PER_PITCHER;
+  const fromLemon = lpc > 0 ? Math.floor(invTotal('lemon') / lpc) : Infinity;
+  const fromSugar = spc > 0 ? Math.floor(invTotal('sugar') / spc) : Infinity;
+  return withIce ? Math.min(fromLemon, fromSugar, invTotal('ice'))
+                 : Math.min(fromLemon, fromSugar);
 }
 
 function expireInv(){
@@ -271,8 +287,10 @@ function expireInv(){
 
 function useIngredients(cups, iceQty){
   // cups = total sold; iceQty = how many of those used ice
-  for(const t of ['lemon','sugar']){
-    let need = cups;
+  const lemonsNeeded = Math.min(Math.round(cups * G.recipe.lemons / CUPS_PER_PITCHER), invTotal('lemon'));
+  const sugarNeeded  = Math.min(Math.round(cups * G.recipe.sugar  / CUPS_PER_PITCHER), invTotal('sugar'));
+  for(const [t, need0] of [['lemon', lemonsNeeded], ['sugar', sugarNeeded]]){
+    let need = need0;
     for(const b of G.inv[t]){
       const use = Math.min(b.qty, need);
       b.qty -= use; need -= use;
@@ -324,9 +342,10 @@ function simulateDay(){
   const lemAvail = invTotal('lemon');
   const sugAvail = invTotal('sugar');
 
-  // Potential customers — scaled by reputation
+  // Potential customers — scaled by reputation and recipe quality
   const tier = getAdTiers();
-  let pot = loc.base * wx.demand * tier.mult * repMult(G.rep) * rng(0.8,1.2);
+  const rq   = recipeQuality();
+  let pot = loc.base * wx.demand * tier.mult * repMult(G.rep) * rq.qualMult * rng(0.8,1.2);
   pot = Math.round(pot);
 
   // Price effect — brand recognition raises sweet spot & softens elasticity at high rep
@@ -359,6 +378,9 @@ function simulateDay(){
   // ── REPUTATION DELTA ─────────────────────────────────────────
   let repDelta = tier.repBonus; // advertising builds brand every day
 
+  // Recipe quality: good lemonade earns word-of-mouth; bad drives customers away
+  repDelta += rq.repDelta;
+
   // Price reputation: fair pricing builds trust; gouging destroys it
   const priceDiff = G.price - sweet;
   if(priceDiff < -0.15)      repDelta += 0.3;  // great deal
@@ -384,7 +406,7 @@ function simulateDay(){
   else reaction='Ran out near the end of the day.';
 
   const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTiers:tier,
-             repBefore,repAfter:G.rep,repDelta:Math.round(repDelta*10)/10};
+             repBefore,repAfter:G.rep,repDelta:Math.round(repDelta*10)/10,recipe:rq};
   G.history.push(r);
   return r;
 }
@@ -417,6 +439,59 @@ function brandBoost(rep){
 }
 function brandElasReduct(rep){
   return Math.min((rep-100)/400, 0.80); // up to 80% less price-sensitive
+}
+
+// ── RECIPE QUALITY ────────────────────────────────────────────
+function recipeQuality(){
+  const {lemons: L, sugar: S} = G.recipe;
+  const total = L + S;
+  if(total === 0) return {tier:'terrible', repDelta:-3, qualMult:0.70, label:'No recipe 🤢', color:'#e05050', feedback:'"There\'s nothing in this lemonade!"'};
+
+  const tartness = L / total;               // 0=all sugar → 1=all lemon
+  const richness = total / CUPS_PER_PITCHER; // ingredients per cup
+
+  // Taste score (tartness) — ideal 0.45–0.60
+  let tScore;
+  if     (tartness < 0.15 || tartness > 0.85) tScore = 0; // terrible
+  else if(tartness < 0.25 || tartness > 0.75) tScore = 1; // bad
+  else if(tartness < 0.35 || tartness > 0.65) tScore = 2; // ok
+  else if(tartness < 0.45 || tartness > 0.60) tScore = 3; // good
+  else                                          tScore = 4; // perfect
+
+  // Richness score — ideal 0.875–1.875 ingredients/cup
+  let rScore;
+  if     (richness < 0.25)                rScore = 0; // terrible: barely anything
+  else if(richness < 0.5)                 rScore = 1; // bad: watery
+  else if(richness < 0.875)               rScore = 2; // ok
+  else if(richness <= 1.875)              rScore = 4; // perfect zone
+  else if(richness <= 2.5)                rScore = 3; // good: strong but ok
+  else                                    rScore = 1; // bad: overpowering
+
+  const score = Math.min(tScore, rScore);
+
+  let tier, repDelta, qualMult, label, color;
+  if     (score === 0) { tier='terrible'; repDelta=-3;   qualMult=0.70; label='Terrible 🤢'; color='#e05050'; }
+  else if(score === 1) { tier='bad';      repDelta=-1.5; qualMult=0.85; label='Bad 😕';      color='#e07030'; }
+  else if(score === 2) { tier='ok';       repDelta=0;    qualMult=1.00; label='OK 👍';        color='#aaa';    }
+  else if(score === 3) { tier='good';     repDelta=1;    qualMult=1.10; label='Good 😊';      color='#60c0ff'; }
+  else                 { tier='perfect';  repDelta=2.5;  qualMult=1.25; label='Perfect! ⭐';  color='#f0c040'; }
+
+  // Customer feedback message
+  let feedback;
+  if(tScore === 0 && tartness < 0.15)      feedback = '"Way too sweet — tastes like liquid candy!"';
+  else if(tScore === 0)                    feedback = '"So sour it\'s painful! My face is puckering."';
+  else if(tScore === 1 && tartness < 0.25) feedback = '"A bit too sweet for me."';
+  else if(tScore === 1)                    feedback = '"A bit too sour — needs more sugar."';
+  else if(rScore === 0)                    feedback = '"This is basically just water..."';
+  else if(rScore === 1)                    feedback = '"Kind of watery — try a stronger mix."';
+  else if(richness > 2.5)                  feedback = '"Way too strong and syrupy!"';
+  else if(tier === 'perfect')              feedback = '"Best lemonade I\'ve had all summer!" ⭐';
+  else if(tier === 'good')                 feedback = '"Really tasty lemonade!" 😊';
+  else if(tScore === 3 && tartness < 0.45) feedback = '"Pretty good, maybe a touch more lemon?"';
+  else if(tScore === 3)                    feedback = '"Pretty good, maybe a touch less lemon?"';
+  else                                     feedback = '"Decent, but I\'ve had better."';
+
+  return {tier, repDelta, qualMult, label, color, feedback, tartness, richness, tScore, rScore};
 }
 
 // ── HELPERS ──────────────────────────────────────────────────
@@ -471,16 +546,20 @@ function getAdTiers(){
 }
 
 function cupsAfterBuy(){
+  const lpc = G.recipe.lemons / CUPS_PER_PITCHER;
+  const spc = G.recipe.sugar  / CUPS_PER_PITCHER;
   return Math.min(
-    invTotal('lemon')+G.pending.lemon,
-    invTotal('sugar')+G.pending.sugar,
+    Math.floor((invTotal('lemon')+G.pending.lemon) / lpc),
+    Math.floor((invTotal('sugar')+G.pending.sugar) / spc),
     invTotal('ice')+G.pending.ice
   );
 }
 function cupsAfterBuyNoIce(){
+  const lpc = G.recipe.lemons / CUPS_PER_PITCHER;
+  const spc = G.recipe.sugar  / CUPS_PER_PITCHER;
   return Math.min(
-    invTotal('lemon')+G.pending.lemon,
-    invTotal('sugar')+G.pending.sugar
+    Math.floor((invTotal('lemon')+G.pending.lemon) / lpc),
+    Math.floor((invTotal('sugar')+G.pending.sugar) / spc)
   );
 }
 
@@ -565,11 +644,56 @@ function renderInvRows(){
   }).join('');
 }
 
+function renderRecipe(){
+  const {lemons: L, sugar: S} = G.recipe;
+  const q = recipeQuality();
+  const costPerCup = (L * PRICES.lemon + S * PRICES.sugar) / CUPS_PER_PITCHER;
+  return `<div class="card">
+    <div class="card-title">🧪 Recipe <span style="font-weight:400;font-size:.8rem;color:var(--muted)">per pitcher → ${CUPS_PER_PITCHER} cups</span></div>
+    <div class="recipe-row">
+      <div class="recipe-ing">
+        <span class="recipe-icon">🍋</span>
+        <div class="recipe-ctrl">
+          <button class="qbtn" onclick="adjRecipe('lemons',-1)">−</button>
+          <span class="recipe-num">${L}</span>
+          <button class="qbtn" onclick="adjRecipe('lemons',1)">+</button>
+        </div>
+        <div class="recipe-lbl">${L===1?'lemon':'lemons'}</div>
+      </div>
+      <span class="recipe-sep">+</span>
+      <div class="recipe-ing">
+        <span class="recipe-icon">🍬</span>
+        <div class="recipe-ctrl">
+          <button class="qbtn" onclick="adjRecipe('sugar',-1)">−</button>
+          <span class="recipe-num">${S}</span>
+          <button class="qbtn" onclick="adjRecipe('sugar',1)">+</button>
+        </div>
+        <div class="recipe-lbl">${S===1?'cup sugar':'cups sugar'}</div>
+      </div>
+      <span class="recipe-sep">→</span>
+      <div class="recipe-ing">
+        <span class="recipe-icon">🥤</span>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--yd);line-height:1">${CUPS_PER_PITCHER}</div>
+        <div class="recipe-lbl">cups</div>
+      </div>
+    </div>
+    <div class="recipe-quality">
+      <span>
+        <strong style="color:${q.color}">${q.label}</strong>
+        <span style="font-size:.78rem;color:var(--muted);margin-left:6px">${q.feedback}</span>
+      </span>
+      <span style="font-size:.82rem;color:var(--muted);flex-shrink:0">~${fmt(costPerCup)}/cup</span>
+    </div>
+  </div>`;
+}
+
 function renderShop(){
   const expiries = {lemon:'7 days', sugar:'months', ice:'overnight!'};
   return ['lemon','sugar','ice'].map(t=>{
     const icons={lemon:'🍋',sugar:'🍬',ice:'🧊'};
-    const names={lemon:'Lemons',sugar:'Sugar (serving)',ice:'Ice (serving)'};
+    const names={lemon:'Lemons',sugar:'Sugar',ice:'Ice (serving)'};
+    const recipeHint = t==='lemon' ? ` · ${G.recipe.lemons}/pitcher`
+                     : t==='sugar' ? ` · ${G.recipe.sugar}/pitcher` : '';
     const qty = G.pending[t];
     const price = supplyPrice(t, qty);
     const bulk = bulkLabel(qty);
@@ -582,7 +706,7 @@ function renderShop(){
         <div class="ing-icon">${icons[t]}</div>
         <div class="ing-info">
           <div class="ing-name">${names[t]}</div>
-          <div class="ing-detail">${priceStr} · lasts ${expiries[t]} &nbsp;${discBadge}</div>
+          <div class="ing-detail">${priceStr}${recipeHint} · lasts ${expiries[t]} &nbsp;${discBadge}</div>
         </div>
       </div>
       <div class="ing-ctrl">
@@ -647,6 +771,8 @@ function renderPlanning(){
       <div class="card-title">📦 Current Inventory</div>
       ${renderInvRows()}
     </div>
+
+    ${renderRecipe()}
 
     <div class="card">
       <div class="card-title">🛒 Buy Supplies</div>
@@ -790,6 +916,7 @@ function renderSummary(){
       <div class="sum-row"><span>Potential customers</span><span>${r.pot}</span></div>
       <div class="sum-row"><span>Cups sold</span><span><strong>${r.sold}</strong> × ${fmt(G.price)} = <span class="pos">${fmt(r.rev)}</span></span></div>
       ${r.pot>r.sold?`<div class="sum-row"><span style="color:var(--muted);font-size:.82rem;padding-left:8px">↳ turned away</span><span style="color:var(--o)">${r.pot-r.sold} ${r.pot-r.want>0&&r.want>r.sold?`(${r.pot-r.want} price · ${r.want-r.sold} supplies)`:(r.pot-r.want>0?`(price)`:`(supplies)`)}</span></div>`:''}
+      <div class="sum-row"><span>🧪 Recipe taste</span><span style="color:${r.recipe.color}"><strong>${r.recipe.label}</strong> <span style="font-weight:400;font-size:.8rem">${r.recipe.feedback}</span></span></div>
       ${!r.hasIce&&r.wx.iceWant>=1?`<div class="sum-row"><span style="color:var(--o)">No ice on a warm day</span><span style="color:var(--o)">Lost some customers</span></div>`:''}
       ${r.adTiers.tiers.map(t=>`<div class="sum-row"><span>${t.icon} ${t.name}</span><span class="neg">-${t.cost>=1000?'$'+t.cost.toLocaleString():fmt(t.cost)} <span style="color:var(--muted);font-weight:400">(+${Math.round((t.mult-1)*100)}% reach)</span></span></div>`).join('')}
       <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adTiers.cost)}</span></div>
@@ -859,6 +986,7 @@ function setQty(t, val){
 }
 
 function resetItem(t){ G.pending[t]=0; render(); }
+function adjRecipe(type, delta){ G.recipe[type] = clamp(G.recipe[type]+delta, 1, 8); render(); }
 
 function toggleForecast(){ forecastOpen=!forecastOpen; render(); }
 function toggleDebug(){ debugMode=!debugMode; render(); }
@@ -948,8 +1076,9 @@ function nextDay(){
 function resetGame(){
   G={screen:'setup',money:START_MONEY,day:1,loc:null,
      inv:{lemon:[],sugar:[],ice:[]},price:1.00,rep:REP_START,
+     recipe:{lemons:2,sugar:3},
      weather:null,nextWeather:null,forecastWeather:null,
-     spend:0,pending:{lemon:0,sugar:0,ice:0},adTier:'none',
+     spend:0,pending:{lemon:0,sugar:0,ice:0},adTiers:[],
      result:null,history:[]};
   render();
 }
