@@ -180,6 +180,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const PRICES = { lemon:.30, sugar:.10, ice:.05 };
 const EXPIRY  = { lemon:7,   sugar:90,  ice:1  };
 const START_MONEY = 20;
+const REP_START   = 50;
 
 const WEATHERS = [
   {id:'scorching', name:'Scorching',   icon:'🌡️', temp:'98°F', demand:2.2, iceWant:2.0, desc:'Blazing hot — everyone wants lemonade!'},
@@ -199,18 +200,18 @@ const LOCS = {
 };
 
 const AD_TIERS = [
-  {id:'none',       name:'No advertising',          icon:'—',   cost:0,         mult:1.0,    desc:'Just open the stand and hope for the best'},
-  {id:'sign',       name:'Friend with a sign',       icon:'🪧',  cost:1,         mult:1.20,   desc:'Your buddy waves people over from the sidewalk'},
-  {id:'flyers',     name:'Handmade flyers',           icon:'📄',  cost:3,         mult:1.45,   desc:'Stapled to every telephone pole in the neighborhood'},
-  {id:'newspaper',  name:'Newspaper ad',              icon:'📰',  cost:5,         mult:1.70,   desc:'Quarter-page ad in the local gazette'},
-  {id:'social',     name:'Social media post',         icon:'📱',  cost:15,        mult:2.20,   desc:'Boosted post hitting local feeds all morning'},
-  {id:'radio',      name:'Local radio spot',          icon:'📻',  cost:40,        mult:3.20,   desc:'30-second spot on morning drive-time radio'},
-  {id:'banner',     name:'Online banner ads',         icon:'💻',  cost:100,       mult:5.00,   desc:'Targeted display ads all over the web'},
-  {id:'billboard',  name:'Billboard',                 icon:'🪟',  cost:1000,      mult:12.0,   desc:'Your stand on a massive roadside billboard'},
-  {id:'tv',         name:'Local TV commercial',       icon:'📺',  cost:5000,      mult:40.0,   desc:'30-second spot on the evening local news'},
-  {id:'influencer', name:'Influencer deal',           icon:'⭐',  cost:25000,     mult:150.0,  desc:'A famous foodie visits and posts to 2M followers'},
-  {id:'national',   name:'National TV ad',            icon:'🎬',  cost:100000,    mult:500.0,  desc:'Prime-time commercial, coast to coast'},
-  {id:'superbowl',  name:'Super Bowl commercial',     icon:'🏈',  cost:1000000,   mult:2000.0, desc:'100 million viewers. The ultimate flex.'},
+  {id:'none',       name:'No advertising',          icon:'—',   cost:0,         mult:1.0,    repBonus:0,    desc:'Just open the stand and hope for the best'},
+  {id:'sign',       name:'Friend with a sign',       icon:'🪧',  cost:1,         mult:1.20,   repBonus:0.5,  desc:'Your buddy waves people over from the sidewalk'},
+  {id:'flyers',     name:'Handmade flyers',           icon:'📄',  cost:3,         mult:1.45,   repBonus:1,    desc:'Stapled to every telephone pole in the neighborhood'},
+  {id:'newspaper',  name:'Newspaper ad',              icon:'📰',  cost:5,         mult:1.70,   repBonus:1.5,  desc:'Quarter-page ad in the local gazette'},
+  {id:'social',     name:'Social media post',         icon:'📱',  cost:15,        mult:2.20,   repBonus:3,    desc:'Boosted post hitting local feeds all morning'},
+  {id:'radio',      name:'Local radio spot',          icon:'📻',  cost:40,        mult:3.20,   repBonus:6,    desc:'30-second spot on morning drive-time radio'},
+  {id:'banner',     name:'Online banner ads',         icon:'💻',  cost:100,       mult:5.00,   repBonus:12,   desc:'Targeted display ads all over the web'},
+  {id:'billboard',  name:'Billboard',                 icon:'🪟',  cost:1000,      mult:12.0,   repBonus:25,   desc:'Your stand on a massive roadside billboard'},
+  {id:'tv',         name:'Local TV commercial',       icon:'📺',  cost:5000,      mult:40.0,   repBonus:70,   desc:'30-second spot on the evening local news'},
+  {id:'influencer', name:'Influencer deal',           icon:'⭐',  cost:25000,     mult:150.0,  repBonus:200,  desc:'A famous foodie visits and posts to 2M followers'},
+  {id:'national',   name:'National TV ad',            icon:'🎬',  cost:100000,    mult:500.0,  repBonus:600,  desc:'Prime-time commercial, coast to coast'},
+  {id:'superbowl',  name:'Super Bowl commercial',     icon:'🏈',  cost:1000000,   mult:2000.0, repBonus:2000, desc:'100 million viewers. The ultimate flex.'},
 ];
 
 // Supply bulk discount tiers: [minQty, discountFraction]
@@ -220,7 +221,7 @@ const BULK_BREAKS = [[5000,.50],[1000,.35],[500,.20],[100,.10]];
 let G = {
   screen:'setup', money:START_MONEY, day:1, loc:null,
   inv:{ lemon:[], sugar:[], ice:[] }, // [{qty,exp}]
-  price:1.00,
+  price:1.00, rep:REP_START,
   weather:null, nextWeather:null, forecastWeather:null,
   spend:0, pending:{lemon:0,sugar:0,ice:0}, adTier:'none',
   result:null, history:[]
@@ -323,14 +324,17 @@ function simulateDay(){
   const lemAvail = invTotal('lemon');
   const sugAvail = invTotal('sugar');
 
-  // Potential customers
+  // Potential customers — scaled by reputation
   const tier = getAdTier();
-  let pot = loc.base * wx.demand * tier.mult * rng(0.8,1.2);
+  let pot = loc.base * wx.demand * tier.mult * repMult(G.rep) * rng(0.8,1.2);
   pot = Math.round(pot);
 
-  // Price effect
-  const sweet = 0.70 + wx.demand*0.25;
-  const priceMult = clamp(1 - (G.price - sweet)*loc.elas*0.55, 0.05, 1.0);
+  // Price effect — brand recognition raises sweet spot & softens elasticity at high rep
+  const bBoost = Math.max(0, brandBoost(G.rep));
+  const bElas  = Math.max(0, brandElasReduct(G.rep));
+  const sweet  = 0.70 + wx.demand*0.25 + bBoost;
+  const effElas = loc.elas * (1 - bElas);
+  const priceMult = clamp(1 - (G.price - sweet)*effElas*0.55, 0.05, 1.0);
   const fullWant = Math.round(pot * priceMult);
 
   // Phase 1: sell with ice until ice runs out
@@ -345,7 +349,6 @@ function simulateDay(){
   const soldNoIce = Math.min(wantNoIce, lemAvail - soldWithIce, sugAvail - soldWithIce);
 
   const sold = soldWithIce + soldNoIce;
-  const want = soldWithIce + Math.round(remainingWant * (iceAvail>0||soldWithIce<fullWant ? noIceMult : 1));
   const rev  = Math.round(sold*G.price*100)/100;
   const net  = Math.round((rev-G.spend)*100)/100;
   const hasIce = iceAvail>0;
@@ -353,15 +356,67 @@ function simulateDay(){
   useIngredients(sold, soldWithIce);
   G.money = Math.round((G.money+rev)*100)/100;
 
+  // ── REPUTATION DELTA ─────────────────────────────────────────
+  let repDelta = tier.repBonus; // advertising builds brand every day
+
+  // Price reputation: fair pricing builds trust; gouging destroys it
+  const priceDiff = G.price - sweet;
+  if(priceDiff < -0.15)      repDelta += 0.3;  // great deal
+  else if(priceDiff <= 0.10) repDelta += 0.5;  // fair
+  else if(priceDiff <= 0.30) repDelta -= 0.5;  // pricey
+  else                        repDelta -= 2.0;  // gouging
+
+  // Supply reliability: serving everyone earns trust; running out loses it
+  if(sold >= fullWant){
+    repDelta += 1.5; // never ran out — customers can rely on you
+  } else {
+    const ratio = (fullWant - sold) / fullWant;
+    repDelta -= Math.min(ratio * 8, 8); // up to -8 for turning everyone away
+  }
+
+  const repBefore = G.rep;
+  G.rep = Math.max(1, Math.round((G.rep + repDelta) * 10) / 10);
+
   let reaction = '';
   if(sold===0) reaction='Not a single cup sold today.';
   else if(sold>=fullWant) reaction = G.price<sweet-0.25 ? 'Customers loved your prices!' : 'Served every customer who came by.';
   else if(sold<fullWant*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
   else reaction='Ran out near the end of the day.';
 
-  const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTier:tier};
+  const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTier:tier,
+             repBefore,repAfter:G.rep,repDelta:Math.round(repDelta*10)/10};
   G.history.push(r);
   return r;
+}
+
+// ── REPUTATION HELPERS ────────────────────────────────────────
+function repLabel(rep){
+  if(rep>=500)  return 'Legendary';
+  if(rep>=300)  return 'Beloved';
+  if(rep>=200)  return 'Famous';
+  if(rep>=150)  return 'Popular';
+  if(rep>=100)  return 'Well-Known';
+  if(rep>=75)   return 'Growing';
+  if(rep>=50)   return 'Unknown';
+  if(rep>=30)   return 'Mixed';
+  if(rep>=15)   return 'Poor';
+  return 'Terrible';
+}
+function repColor(rep){
+  if(rep>=300) return '#f0c040';
+  if(rep>=150) return '#7ed856';
+  if(rep>=75)  return '#60c0ff';
+  if(rep>=50)  return '#aaa';
+  return '#e05050';
+}
+// Customer multiplier from reputation (square-root curve, starts at 1.0)
+function repMult(rep){ return Math.sqrt(rep/REP_START); }
+// Brand recognition: at high rep, sweet-spot price rises and elasticity eases
+function brandBoost(rep){
+  return Math.min((rep-100)/500, 1.5);  // kicks in above rep 100, caps at +$1.50
+}
+function brandElasReduct(rep){
+  return Math.min((rep-100)/400, 0.80); // up to 80% less price-sensitive
 }
 
 // ── HELPERS ──────────────────────────────────────────────────
@@ -464,11 +519,13 @@ function renderSetup(){
 }
 
 function renderHeader(){
+  const rc = repColor(G.rep);
   return `<div class="hdr">
     <div class="hdr-title">🍋 Lemonade Stand</div>
     <div class="hdr-stats">
       <div class="stat">Day ${G.day}</div>
       <div class="stat">${fmt(G.money)}</div>
+      <div class="stat"><span style="color:${rc}">★</span> <span style="color:${rc};font-weight:700">${G.rep}</span> <span style="color:var(--muted);font-weight:400;font-size:.75rem">${repLabel(G.rep)}</span></div>
       <div class="stat">${LOCS[G.loc].icon} ${LOCS[G.loc].name}</div>
     </div>
   </div>`;
@@ -602,6 +659,7 @@ function renderPlanning(){
           const supCost = pendingCost() - getAdTier().cost;
           const locked = t.cost > G.money - supCost && !sel;
           const boostTxt = t.mult>1 ? `+${Math.round((t.mult-1)*100)}% customers` : 'No boost';
+          const repTxt   = t.repBonus>0 ? `★ +${t.repBonus} rep/day` : '';
           const costTxt  = t.cost===0 ? 'Free' : t.cost>=1000 ? '$'+t.cost.toLocaleString() : '$'+t.cost;
           return `<div class="ad-row${sel?' ad-sel':''}${locked?' ad-locked':''}" onclick="selectAdTier('${t.id}')">
             <div class="ad-dot">${sel?'✓':''}</div>
@@ -613,6 +671,7 @@ function renderPlanning(){
             <div class="ad-right">
               <div class="ad-cost">${costTxt}</div>
               <div class="ad-boost">${boostTxt}</div>
+              ${repTxt?`<div style="font-size:.72rem;color:#c8a840">${repTxt}</div>`:''}
             </div>
           </div>`;
         }).join('')}
@@ -631,6 +690,7 @@ function renderPlanning(){
         ${[0.50,0.75,1.00,1.25,1.50].map(p=>`
           <button class="btn ${Math.abs(G.price-p)<.01?'btn-y':'btn-w'}" onclick="quickPrice(${p})">${fmt(p)}</button>`).join('')}
       </div>
+      ${G.rep>=100?`<div style="margin-top:8px;font-size:.78rem;color:#c8a840">★ Brand recognition: sweet spot up to <strong>${fmt(0.70+wx.demand*0.25+Math.max(0,brandBoost(G.rep)))}</strong> · price sensitivity reduced ${Math.round(Math.max(0,brandElasReduct(G.rep))*100)}%</div>`:''}
     </div>
 
     <div class="cups-box">
@@ -726,6 +786,16 @@ function renderSummary(){
       <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adTier.cost)}</span></div>
       <div class="sum-row ttl"><span>Net today</span><span class="${r.net>=0?'pos':'neg'}">${r.net>=0?'+':''}${fmt(r.net)}</span></div>
       <div class="sum-row ttl"><span>Balance</span><span>${fmt(G.money)}</span></div>
+      <div class="sum-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border)">
+        <span>★ Reputation</span>
+        <span>
+          <span style="color:${repColor(r.repBefore)};font-weight:700">${r.repBefore}</span>
+          <span style="color:var(--muted);font-size:.8rem"> → </span>
+          <span style="color:${repColor(r.repAfter)};font-weight:700">${r.repAfter}</span>
+          <span class="${r.repDelta>=0?'pos':'neg'}" style="font-size:.82rem;margin-left:4px">(${r.repDelta>=0?'+':''}${r.repDelta})</span>
+          <span style="color:var(--muted);font-size:.78rem;margin-left:4px">${repLabel(r.repAfter)}</span>
+        </span>
+      </div>
     </div>
     ${renderInventoryRemaining()}
     ${renderChart()}
@@ -745,6 +815,7 @@ function renderGameOver(){
       <div class="sum-row"><span>Days survived</span><span><strong>${days}</strong></span></div>
       <div class="sum-row"><span>Total revenue</span><span>${fmt(totRev)}</span></div>
       <div class="sum-row"><span>Best day</span><span>${best.sold} cups ${best.wx.icon?`(${best.wx.icon} ${best.wx.name})`:'sold'}</span></div>
+      <div class="sum-row"><span>★ Final reputation</span><span style="color:${repColor(G.rep)};font-weight:700">${G.rep} — ${repLabel(G.rep)}</span></div>
       <div class="sum-row"><span>Location</span><span>${LOCS[G.loc].icon} ${LOCS[G.loc].name}</span></div>
     </div>
     <button class="btn btn-y btn-full" onclick="resetGame()">🍋 Try Again</button>
@@ -862,7 +933,7 @@ function nextDay(){
 
 function resetGame(){
   G={screen:'setup',money:START_MONEY,day:1,loc:null,
-     inv:{lemon:[],sugar:[],ice:[]},price:1.00,
+     inv:{lemon:[],sugar:[],ice:[]},price:1.00,rep:REP_START,
      weather:null,nextWeather:null,forecastWeather:null,
      spend:0,pending:{lemon:0,sugar:0,ice:0},adTier:'none',
      result:null,history:[]};
