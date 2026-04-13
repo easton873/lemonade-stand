@@ -223,7 +223,7 @@ let G = {
   inv:{ lemon:[], sugar:[], ice:[] }, // [{qty,exp}]
   price:1.00, rep:REP_START,
   weather:null, nextWeather:null, forecastWeather:null,
-  spend:0, pending:{lemon:0,sugar:0,ice:0}, adTier:'none',
+  spend:0, pending:{lemon:0,sugar:0,ice:0}, adTiers:[],
   result:null, history:[]
 };
 
@@ -325,7 +325,7 @@ function simulateDay(){
   const sugAvail = invTotal('sugar');
 
   // Potential customers — scaled by reputation
-  const tier = getAdTier();
+  const tier = getAdTiers();
   let pot = loc.base * wx.demand * tier.mult * repMult(G.rep) * rng(0.8,1.2);
   pot = Math.round(pot);
 
@@ -383,7 +383,7 @@ function simulateDay(){
   else if(sold<fullWant*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
   else reaction='Ran out near the end of the day.';
 
-  const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTier:tier,
+  const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTiers:tier,
              repBefore,repAfter:G.rep,repDelta:Math.round(repDelta*10)/10};
   G.history.push(r);
   return r;
@@ -459,10 +459,16 @@ function sumTitle(r){
 }
 
 function pendingCost(){
-  return ['lemon','sugar','ice'].reduce((s,t)=>s+supplyPrice(t,G.pending[t])*G.pending[t],0)+getAdTier().cost;
+  return ['lemon','sugar','ice'].reduce((s,t)=>s+supplyPrice(t,G.pending[t])*G.pending[t],0)+getAdTiers().cost;
 }
 
-function getAdTier(id){ return AD_TIERS.find(t=>t.id===(id||G.adTier))||AD_TIERS[0]; }
+function getAdTiers(){
+  const selected = G.adTiers.map(id=>AD_TIERS.find(t=>t.id===id)).filter(Boolean);
+  const cost     = selected.reduce((s,t)=>s+t.cost, 0);
+  const mult     = 1 + selected.reduce((s,t)=>s+(t.mult-1), 0); // additive reach bonuses
+  const repBonus = selected.reduce((s,t)=>s+t.repBonus, 0);
+  return {cost, mult, repBonus, tiers: selected};
+}
 
 function cupsAfterBuy(){
   return Math.min(
@@ -655,9 +661,10 @@ function renderPlanning(){
       <div class="card-title">📣 Advertising</div>
       <div class="ad-list">
         ${AD_TIERS.map(t=>{
-          const sel = G.adTier===t.id;
-          const supCost = pendingCost() - getAdTier().cost;
-          const locked = t.cost > G.money - supCost && !sel;
+          const sel = G.adTiers.includes(t.id);
+          const currentAdCost = getAdTiers().cost;
+          const supCost = pendingCost() - currentAdCost;
+          const locked = !sel && t.cost > G.money - supCost - currentAdCost;
           const boostTxt = t.mult>1 ? `+${Math.round((t.mult-1)*100)}% customers` : 'No boost';
           const repTxt   = t.repBonus>0 ? `★ +${t.repBonus} rep/day` : '';
           const costTxt  = t.cost===0 ? 'Free' : t.cost>=1000 ? '$'+t.cost.toLocaleString() : '$'+t.cost;
@@ -676,6 +683,7 @@ function renderPlanning(){
           </div>`;
         }).join('')}
       </div>
+      ${(()=>{const a=getAdTiers();return a.tiers.length>1?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.82rem;display:flex;justify-content:space-between"><span style="color:var(--muted)">${a.tiers.length} ads combined</span><span><strong>+${Math.round((a.mult-1)*100)}%</strong> reach · <strong class="neg">-${a.cost>=1000?'$'+a.cost.toLocaleString():fmt(a.cost)}</strong> total</span></div>`:''})()}
     </div>
 
     <div class="card">
@@ -783,8 +791,8 @@ function renderSummary(){
       <div class="sum-row"><span>Cups sold</span><span><strong>${r.sold}</strong> × ${fmt(G.price)} = <span class="pos">${fmt(r.rev)}</span></span></div>
       ${r.pot>r.sold?`<div class="sum-row"><span style="color:var(--muted);font-size:.82rem;padding-left:8px">↳ turned away</span><span style="color:var(--o)">${r.pot-r.sold} ${r.pot-r.want>0&&r.want>r.sold?`(${r.pot-r.want} price · ${r.want-r.sold} supplies)`:(r.pot-r.want>0?`(price)`:`(supplies)`)}</span></div>`:''}
       ${!r.hasIce&&r.wx.iceWant>=1?`<div class="sum-row"><span style="color:var(--o)">No ice on a warm day</span><span style="color:var(--o)">Lost some customers</span></div>`:''}
-      ${r.adTier.cost>0?`<div class="sum-row"><span>${r.adTier.icon} ${r.adTier.name}</span><span class="neg">-${r.adTier.cost>=1000?'$'+r.adTier.cost.toLocaleString():fmt(r.adTier.cost)} <span style="color:var(--muted);font-weight:400">(+${Math.round((r.adTier.mult-1)*100)}% reach)</span></span></div>`:''}
-      <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adTier.cost)}</span></div>
+      ${r.adTiers.tiers.map(t=>`<div class="sum-row"><span>${t.icon} ${t.name}</span><span class="neg">-${t.cost>=1000?'$'+t.cost.toLocaleString():fmt(t.cost)} <span style="color:var(--muted);font-weight:400">(+${Math.round((t.mult-1)*100)}% reach)</span></span></div>`).join('')}
+      <div class="sum-row"><span>Supplies bought</span><span class="neg">-${fmt(r.exp-r.adTiers.cost)}</span></div>
       <div class="sum-row ttl"><span>Net today</span><span class="${r.net>=0?'pos':'neg'}">${r.net>=0?'+':''}${fmt(r.net)}</span></div>
       <div class="sum-row ttl"><span>Balance</span><span>${fmt(G.money)}</span></div>
       <div class="sum-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border)">
@@ -857,10 +865,15 @@ function toggleDebug(){ debugMode=!debugMode; render(); }
 function cheatMoney(n){ G.money=Math.round((G.money+n)*100)/100; render(); }
 
 function selectAdTier(id){
-  const t = getAdTier(id);
-  const supCost = pendingCost() - getAdTier().cost;
-  if(t.cost > G.money - supCost) return;
-  G.adTier = id;
+  const t = AD_TIERS.find(x=>x.id===id);
+  if(!t) return;
+  if(G.adTiers.includes(id)){
+    G.adTiers = G.adTiers.filter(x=>x!==id);
+  } else {
+    const supCost = pendingCost() - getAdTiers().cost;
+    if(t.cost > G.money - supCost - getAdTiers().cost) return;
+    G.adTiers.push(id);
+  }
   render();
 }
 
@@ -877,7 +890,7 @@ function openStand(){
   buyItem('sugar',G.pending.sugar);
   buyItem('ice',  G.pending.ice);
   // Deduct ad spend
-  const adCost = getAdTier().cost;
+  const adCost = getAdTiers().cost;
   if(adCost>0){
     G.money = Math.round((G.money-adCost)*100)/100;
     G.spend = Math.round((G.spend+adCost)*100)/100;
@@ -922,7 +935,7 @@ function nextDay(){
   G.weather = G.nextWeather;
   G.nextWeather = pickWeather();
   G.forecastWeather = makeForecast(G.nextWeather);
-  G.spend=0; G.pending={lemon:0,sugar:0,ice:0}; G.adTier='none'; forecastOpen=false;
+  G.spend=0; G.pending={lemon:0,sugar:0,ice:0}; G.adTiers=[]; forecastOpen=false;
 
   // Final game-over check
   const canMake=maxCups(false);
