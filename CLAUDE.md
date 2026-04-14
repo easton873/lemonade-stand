@@ -54,3 +54,13 @@ A `debugMode` flag is accessible via the browser console. It exposes money cheat
 - DOM updates use `innerHTML` with template literals — no virtual DOM or diffing
 - Game logic has no browser dependencies — safe to import in Node for testing
 - Emojis are used extensively as UI icons — preserve them when editing UI strings
+
+## Browser Compatibility
+
+The game must work on older mobile Safari (iOS 12+). There is no transpilation step, so syntax unsupported by older Safari will silently break the entire `<script type="module">` block — nothing renders and the error is hard to see on mobile.
+
+**Avoid these in `index.html` and `game.js`:**
+- Optional chaining: `a?.b` → use `a ? a.b : undefined`
+- Nullish coalescing: `a ?? b` → use `a != null ? a : b`
+- Logical assignment: `a ||= b`, `a &&= b`, `a ??= b`
+- `String.prototype.replaceAll` (use `.replace(/pattern/g, ...)` instead)
