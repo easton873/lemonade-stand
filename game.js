@@ -187,6 +187,10 @@ export function simulateDay(){
   const wantNoIce = Math.round(remainingWant * noIceMult);
   const soldNoIce = Math.min(wantNoIce, lemAvail - soldWithIce, sugAvail - soldWithIce);
 
+  // Customers who left specifically because they wanted ice but there was none
+  const iceRanOut = soldWithIce < fullWant && soldWithIce === iceAvail;
+  const iceTurnaway = iceRanOut ? Math.max(0, remainingWant - wantNoIce) : 0;
+
   const sold = soldWithIce + soldNoIce;
   const rev  = Math.round(sold*G.price*100)/100;
   const net  = Math.round((rev-G.spend)*100)/100;
@@ -222,11 +226,14 @@ export function simulateDay(){
   let reaction = '';
   if(sold===0) reaction='Not a single cup sold today.';
   else if(sold>=fullWant) reaction = G.price<sweet-0.25 ? 'Customers loved your prices!' : 'Served every customer who came by.';
-  else if(sold<fullWant*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
+  else if(iceRanOut && iceTurnaway>0 && (fullWant-sold)<=iceTurnaway) {
+    // Ice was the only supply reason customers left
+    reaction = sold<fullWant*0.5 ? 'Ran out of ice early — some customers left without a cup!' : 'Ran out of ice near the end of the day.';
+  } else if(sold<fullWant*0.5) reaction='Ran out of supplies early — customers left empty-handed!';
   else reaction='Ran out near the end of the day.';
 
   const r = {pot,want:fullWant,sold,rev,exp:Math.round(G.spend*100)/100,net,wx,hasIce,sweet,reaction,adTiers:tier,
-             repBefore,repAfter:G.rep,repDelta:Math.round(repDelta*10)/10,recipe:rq};
+             repBefore,repAfter:G.rep,repDelta:Math.round(repDelta*10)/10,recipe:rq,iceTurnaway};
   G.history.push(r);
   return r;
 }
