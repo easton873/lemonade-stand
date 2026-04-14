@@ -740,7 +740,8 @@ function render(){
   const app=document.getElementById('app');
   const screenChanged = G.screen !== _prevScreen;
   _prevScreen = G.screen;
-  const adListScroll = app.querySelector('.ad-list')?.scrollTop ?? 0;
+  const _adListEl = app.querySelector('.ad-list');
+  const adListScroll = _adListEl ? _adListEl.scrollTop : 0;
   switch(G.screen){
     case 'setup':       app.innerHTML=renderSetup();      break;
     case 'planning':    app.innerHTML=renderPlanning();   break;
