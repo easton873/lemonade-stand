@@ -187,7 +187,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="app"></div>
 <script type="module">
 import { PRICES, EXPIRY, CUPS_PER_PITCHER, START_MONEY, REP_START,
-         WEATHERS, WX_WEIGHTS, LOCS, AD_TIERS, BULK_BREAKS,
+         WEATHERS, WX_WEIGHTS, LOCS, AD_TIERS, BULK_BREAKS, affordableAdIds,
          G, resetState,
          supplyPrice, maxQtyAffordable, bulkLabel, fmt, clamp, rng,
          invTotal, maxCups, expireInv, useIngredients, buyItem,
@@ -657,12 +657,7 @@ function selectAdTier(id){
 function selectAffordableAds(){
   const supCost = pendingCost() - getAdTiers().cost;
   const budget = G.money - supCost;
-  G.adTiers = [];
-  let spent = 0;
-  const sorted = AD_TIERS.filter(t=>t.cost>0).sort((a,b)=>a.cost-b.cost);
-  for(const t of sorted){
-    if(spent + t.cost <= budget){ G.adTiers.push(t.id); spent += t.cost; }
-  }
+  G.adTiers = affordableAdIds(budget);
   render();
 }
 

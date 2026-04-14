@@ -5,7 +5,7 @@ import {
   supplyPrice, maxQtyAffordable, bulkLabel,
   repLabel, repMult, brandBoost, brandElasReduct,
   invTotal, maxCups, buyItem, expireInv,
-  getAdTiers, recipeQuality,
+  getAdTiers, affordableAdIds, recipeQuality,
   sumEmoji, sumTitle,
 } from './game.js';
 
@@ -298,6 +298,63 @@ describe('getAdTiers', () => {
     expect(result.cost).toBe(1 + 3);
     // mult = 1 + (1.20-1) + (1.45-1) = 1 + 0.20 + 0.45 = 1.65
     expect(result.mult).toBeCloseTo(1.65);
+  });
+});
+
+// ── affordableAdIds ───────────────────────────────────────────
+describe('affordableAdIds', () => {
+  it('returns empty array for zero budget', () => {
+    expect(affordableAdIds(0)).toEqual([]);
+  });
+
+  it('returns empty array for negative budget', () => {
+    expect(affordableAdIds(-5)).toEqual([]);
+  });
+
+  it('selects only the cheapest ad when budget covers just one', () => {
+    // sign=$1, next cheapest is flyers=$3; budget $2 fits only sign
+    const ids = affordableAdIds(2);
+    expect(ids).toContain('sign');
+    expect(ids).not.toContain('flyers');
+  });
+
+  it('selects multiple ads greedily from cheapest first', () => {
+    // sign=$1 + flyers=$3 + newspaper=$5 = $9
+    const ids = affordableAdIds(9);
+    expect(ids).toContain('sign');
+    expect(ids).toContain('flyers');
+    expect(ids).toContain('newspaper');
+    expect(ids).not.toContain('social'); // social=$15, would exceed $9
+  });
+
+  it('skips an ad that would exceed the budget even if cheaper ones remain', () => {
+    // sign=$1, flyers=$3, newspaper=$5, social=$15
+    // budget $8: sign($1) + flyers($3) = $4, newspaper($5) would make $9 > $8, skip
+    // social($15) also too expensive — result is sign + flyers only
+    const ids = affordableAdIds(8);
+    expect(ids).toContain('sign');
+    expect(ids).toContain('flyers');
+    expect(ids).not.toContain('newspaper');
+  });
+
+  it('never includes the free "none" tier', () => {
+    const ids = affordableAdIds(1000000);
+    expect(ids).not.toContain('none');
+  });
+
+  it('selects all ads when budget is unlimited', () => {
+    const ids = affordableAdIds(Infinity);
+    // Every paid tier should be included
+    expect(ids).toContain('sign');
+    expect(ids).toContain('superbowl');
+    expect(ids).not.toContain('none');
+  });
+
+  it('returns ids in cheapest-first order', () => {
+    const ids = affordableAdIds(9);
+    // sign=$1, flyers=$3, newspaper=$5 — should come in this order
+    expect(ids.indexOf('sign')).toBeLessThan(ids.indexOf('flyers'));
+    expect(ids.indexOf('flyers')).toBeLessThan(ids.indexOf('newspaper'));
   });
 });
 
