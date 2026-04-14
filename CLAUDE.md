@@ -6,20 +6,17 @@ A browser-based business simulation game built with vanilla HTML, CSS, and JavaS
 
 ## Architecture
 
-The entire project lives in a single file: `index.html` (no build step, no dependencies).
+Game logic lives in `game.js` (ES module); the UI layer lives in `index.html`.
 
-**File layout:**
-- Lines 1–185: HTML structure and embedded CSS
-- Lines 188–240: Game constants and initial state (`G` object)
-- Lines 242–564: Utility functions and game mechanics
-- Lines 567–850: UI rendering functions
-- Lines 1000–1106: Event handlers and game loop
+**`game.js`** — all constants, the `G` state object, and every pure/game-logic function (exported). No DOM access.
 
-**State management:** A single global object `G` holds all game state (money, inventory, reputation, day count, etc.). The entire UI re-renders on each state change via `render()`.
+**`index.html`** — imports from `game.js`, contains all render functions and event handlers. Uses `<script type="module">`. Inline `onclick` handlers work because event handler functions are exposed via `Object.assign(window, {...})` at startup.
+
+**State management:** A single mutable object `G` (exported from `game.js`) holds all game state (money, inventory, reputation, day count, etc.). The entire UI re-renders on each state change via `render()`. Tests reset state between runs with `resetState()`.
 
 ## Running the Game
 
-No installation or build required. Just open the file in a browser:
+No build required. Just open the file in a browser:
 
 ```bash
 open index.html
@@ -27,6 +24,16 @@ open index.html
 python -m http.server 8000
 # then visit http://localhost:8000
 ```
+
+## Testing
+
+```bash
+npm install       # first time only
+npm test          # run all tests once
+npm run test:watch  # watch mode
+```
+
+Tests live in `game.test.js` and use [Vitest](https://vitest.dev/). They cover the pure game-logic functions in `game.js` — pricing, bulk discounts, reputation math, recipe quality, inventory operations, and ad tier aggregation. Tests set up `G` directly and call `resetState()` in `beforeEach` to isolate state.
 
 ## Key Game Systems
 
@@ -45,5 +52,5 @@ A `debugMode` flag is accessible via the browser console. It exposes money cheat
 
 - All styling is in the `<style>` tag using CSS custom properties, Grid, and Flexbox
 - DOM updates use `innerHTML` with template literals — no virtual DOM or diffing
-- No external dependencies; runs in any modern browser (ES6+)
+- Game logic has no browser dependencies — safe to import in Node for testing
 - Emojis are used extensively as UI icons — preserve them when editing UI strings
