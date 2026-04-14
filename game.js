@@ -372,6 +372,16 @@ export function getAdTiers(){
   return {cost, mult, repBonus, tiers: selected};
 }
 
+export function affordableAdIds(adBudget){
+  let spent = 0;
+  const ids = [];
+  const sorted = AD_TIERS.filter(t=>t.cost>0).sort((a,b)=>a.cost-b.cost);
+  for(const t of sorted){
+    if(spent + t.cost <= adBudget){ ids.push(t.id); spent += t.cost; }
+  }
+  return ids;
+}
+
 export function cupsAfterBuy(){
   const lpc = G.recipe.lemons / CUPS_PER_PITCHER;
   const spc = G.recipe.sugar  / CUPS_PER_PITCHER;

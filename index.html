@@ -187,7 +187,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="app"></div>
 <script type="module">
 import { PRICES, EXPIRY, CUPS_PER_PITCHER, START_MONEY, REP_START,
-         WEATHERS, WX_WEIGHTS, LOCS, AD_TIERS, BULK_BREAKS,
+         WEATHERS, WX_WEIGHTS, LOCS, AD_TIERS, BULK_BREAKS, affordableAdIds,
          G, resetState,
          supplyPrice, maxQtyAffordable, bulkLabel, fmt, clamp, rng,
          invTotal, maxCups, expireInv, useIngredients, buyItem,
@@ -437,7 +437,10 @@ function renderPlanning(){
     </div>
 
     <div class="card">
-      <div class="card-title">📣 Advertising</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="card-title" style="margin-bottom:0">📣 Advertising</div>
+        <button class="btn btn-w" style="font-size:.75rem;padding:3px 8px" onclick="selectAffordableAds()">Select affordable</button>
+      </div>
       <div class="ad-list">
         ${AD_TIERS.map(t=>{
           const sel = G.adTiers.includes(t.id);
@@ -651,6 +654,13 @@ function selectAdTier(id){
   render();
 }
 
+function selectAffordableAds(){
+  const supCost = pendingCost() - getAdTiers().cost;
+  const budget = G.money - supCost;
+  G.adTiers = affordableAdIds(budget);
+  render();
+}
+
 function setPrice(v){
   G.price=clamp(parseFloat(v)||1,0.10,9.99);
   render();
@@ -730,6 +740,7 @@ function render(){
   const app=document.getElementById('app');
   const screenChanged = G.screen !== _prevScreen;
   _prevScreen = G.screen;
+  const adListScroll = app.querySelector('.ad-list')?.scrollTop ?? 0;
   switch(G.screen){
     case 'setup':       app.innerHTML=renderSetup();      break;
     case 'planning':    app.innerHTML=renderPlanning();   break;
@@ -740,13 +751,16 @@ function render(){
   if(screenChanged){
     window.scrollTo(0,0);
     if(app.firstElementChild) app.firstElementChild.classList.add('fade');
+  } else {
+    const newAdList = app.querySelector('.ad-list');
+    if(newAdList && adListScroll > 0) newAdList.scrollTop = adListScroll;
   }
 }
 
 // Expose event handlers to global scope for inline onclick attributes
 Object.assign(window, {
   selectLoc, startGame, adj, setQty, resetItem, adjRecipe,
-  toggleForecast, toggleDebug, cheatMoney, selectAdTier,
+  toggleForecast, toggleDebug, cheatMoney, selectAdTier, selectAffordableAds,
   setPrice, quickPrice, openStand, nextDay, resetGame
 });
 
